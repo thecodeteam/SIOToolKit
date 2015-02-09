@@ -72,40 +72,8 @@ function Get-SIOVolumes
                   PositionalBinding=$false,
                   HelpUri = 'http://labbuildr.com/',
                   ConfirmImpact='Medium')]
-    # [OutputType([String])]
     Param
     (
-    <# Param1 help description
-        [Parameter(Mandatory=$true, 
-                   ValueFromPipeline=$true,
-                   ValueFromPipelineByPropertyName=$true, 
-                   ValueFromRemainingArguments=$false, 
-                   Position=0,
-                   ParameterSetName='Parameter Set 1')]
-        [ValidateNotNull()]
-        [ValidateNotNullOrEmpty()]
-        [ValidateCount(0,5)]
-        [ValidateSet("sun", "moon", "earth")]
-        [Alias("p1")] 
-        $Param1,
-
-        # Param2 help description
-        [Parameter(ParameterSetName='Parameter Set 1')]
-        [AllowNull()]
-        [AllowEmptyCollection()]
-        [AllowEmptyString()]
-        [ValidateScript({$true})]
-        [ValidateRange(0,5)]
-        [int]
-        $Param2,
-
-        # Param3 help description
-        [Parameter(ParameterSetName='Another Parameter Set')]
-        [ValidatePattern("[a-z]*")]
-        [ValidateLength(0,15)]
-        [String]
-        $Param3
-        #>
     )
 
     Begin
@@ -159,7 +127,7 @@ function Get-SIOVolumes
                 Write-Verbose "Found Volume $currentvolumename with ID $currentvolumeID"
 
                 $object = New-Object -TypeName psobject
-		        $Object | Add-Member -MemberType NoteProperty -Name Volumename -Value $currentvolumename
+		        $Object | Add-Member -MemberType NoteProperty -Name Name -Value $currentvolumename
 		        $object | Add-Member -MemberType NoteProperty -Name SizeGB -Value $currentvolumeSize
 		        $object | Add-Member -MemberType NoteProperty -Name Type -Value $Type
 		        $Object | Add-Member -MemberType NoteProperty -Name VolumeID -Value $currentvolumeID
@@ -167,9 +135,6 @@ function Get-SIOVolumes
 		        $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $CurrentpoolID
                 $object | Add-Member -MemberType NoteProperty -Name Mapped -Value $Mapped
                 Write-Output $object
-
-
-
                 }
 
 
@@ -186,7 +151,7 @@ function Get-SIOVolumes
 
 function Get-SIOVolume
 {
-    [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
+    [CmdletBinding(DefaultParameterSetName='1', 
                   SupportsShouldProcess=$true, 
                   PositionalBinding=$false,
                   HelpUri = 'http://labbuildr.com/',
@@ -194,45 +159,57 @@ function Get-SIOVolume
     # [OutputType([String])]
     Param
     (
-    # Param1 help description
+    # Specify the SIO Volume ID  
         [Parameter(Mandatory=$true, 
-#                   ValueFromPipeline=$true,
                    ValueFromPipelineByPropertyName=$true, 
-                   # ValueFromRemainingArguments=$false, 
-                   ParameterSetName='Parameter Set 1')]
+                   ParameterSetName='1')]
         [ValidateNotNull()]
         [ValidateNotNullOrEmpty()]
-#        [ValidateCount(1,16)]
         [Alias("ID")] 
-        $VolumeID
-
-        <# Param2 help description
-        [Parameter(ParameterSetName='Parameter Set 1')]
-        [AllowNull()]
-        [AllowEmptyCollection()]
-        [AllowEmptyString()]
-        [ValidateScript({$true})]
-        [ValidateRange(0,5)]
-        [int]
-        $Param2,
-
-        # Param3 help description
-        [Parameter(ParameterSetName='Another Parameter Set')]
-        [ValidatePattern("[a-z]*")]
-        [ValidateLength(0,15)]
-        [String]
-        $Param3
-        #>
+        $VolumeID,
+    # Specify the SIO Volume Name  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true, 
+                   ParameterSetName='2')]
+        [ValidateNotNull()]
+        [ValidateNotNullOrEmpty()]
+        [Alias("Name")] 
+        $VolumeName
     )
 
     Begin
     {
     $mdmmessage = Connect-SIOmdm
+    
     }
     Process
     {
+        [bool]$Mapped = $false
+        [bool]$MultiMapped = $false
         $object = New-Object -TypeName psobject
-        $Volumequery = scli --query_volume --volume_id $VolumeID --mdm_ip $Global:mdm
+        switch ($PsCmdlet.ParameterSetName)
+            {
+            "1"
+                {
+                $Volumequery = scli --query_volume --volume_id $VolumeID --mdm_ip $Global:mdm
+                }
+            "2"
+                {
+                $Volumequery = scli --query_volume --volume_name $VolumeName --mdm_ip $Global:mdm
+                }
+            }
+        
+        if ($Volumequery -match "Mapped SDCs:")
+            {
+            Write-Verbose "Volume is multimapped"
+            [bool]$MultiMapped = $true
+            }
+        if ($Volumequery -match "SDC ID:")
+            {
+            Write-Verbose "Volume is mapped"
+            [bool]$Mapped = $true
+            }
+
         if ($Volumequery -match " Snapshot of ")
             {
             $Type = "Snapshot"
@@ -241,17 +218,15 @@ function Get-SIOVolume
             {
             $Type = "Thin"
             }
-        if ($Volumequery -match "Mapped SDCs:")
-            {
-            [bool]$Mapped = $true
-            }
         ### Volume ####
         $IDTag = ">> Volume ID: "
         $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Field1 -IDTag $IDTag
-        $Object | Add-Member -MemberType NoteProperty -Name Volume -Value $Convert.Field1
+        $Object | Add-Member -MemberType NoteProperty -Name Name -Value $Convert.Field1
         $Object | Add-Member -MemberType NoteProperty -Name VolumeID -Value $Convert.id
         $Object | Add-Member -MemberType NoteProperty -Name Type -Value $Type
         $object | Add-Member -MemberType NoteProperty -Name Mapped -Value $Mapped
+        $object | Add-Member -MemberType NoteProperty -Name MultiMapped -Value $MultiMapped
+
 
         #### Pool   ####
         $IDTag = "   Storage Pool "
@@ -297,7 +272,7 @@ function Get-SIOVolume
 
 function convert-line
 {
-[CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
+[CmdletBinding(DefaultParameterSetName='1', 
                   SupportsShouldProcess=$true, 
                   PositionalBinding=$false,
                   HelpUri = 'http://labbuildr.com/',
@@ -326,4 +301,53 @@ If ($short[2])
     $Object | Add-Member -MemberType NoteProperty -Name Field2 -Value $Short[2]
     }
 Write-Output $object
+}
+
+#function to unamp from SDC
+function Disconnect-SIOVolume
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO Volume ID  
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]$VolumeID,
+    # Specify the SIO Volume Name  
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("VolumeName")]$Name
+    )#end param
+
+begin {}
+process 
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                $Volumequery = Get-SIOVolume -VolumeID $VolumeID
+                    
+                }
+            "2"
+                {
+                $Volumequery = Get-SIOVolume -VolumeName $Name
+                }
+     }
+if (!($Volumequery))
+    {
+    write-error "Volume $VolumeID $VolumeName not found"
+    Break
+    }
+Else
+    {
+    $Volumequery
+    scli --unmap_volume_from_sdc --volume_name $($Volumequery.name) --all_sdcs --i_am_sure --mdm_ip $mdm
+    } 
+        
+
+
+}
+
 }
