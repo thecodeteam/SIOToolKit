@@ -513,7 +513,7 @@ function Connect-SIOVolume
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]$VolumeID,
     # Specify the SIO Volume Name  
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("VolumeName")]$Name,
-        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]$SDCid
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)]$SDCid
     )#end param
 begin
 {}
@@ -928,13 +928,16 @@ function New-SIOSnapshot
     # Specify the SIO Volume ID  
         [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]$VolumeID,
     # Specify the SIO Volume Name  
-        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("VolumeName")]$Name
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("Name")]$VolumeName,
+    # Specify the SNAP Name, if none specified one will be generated from source and time  
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true)][Alias("SN")]$SnapName
+
     )#end param
 begin 
 {
 $Snapsource = @()
 $Snaptarget = @()
-$Snapname = get-date -Format hhmmss$Congroup = $false
+if (!$Snapname) {$SnapName = get-date -Format hhmmss }$Congroup = $false
 
 }
 process 
@@ -960,7 +963,7 @@ Else
     {
     $Snapsource += $Volumequery.VolumeId
     $Snaptarget += "$($Volumequery.Name.Substring(0,5))_$Snapname"
-        } 
+    } 
 }
 end {
     write-verbose ($Snapsource -Join ',')
