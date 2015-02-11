@@ -30,6 +30,7 @@ Extract the SIOToolkit to the Modules Path or any other path on the MDM.
 Import the Module into Powershell
 
 Examples
+===========
 ```PowerShell
 # import the moduel. first time load in a session requires mdm ip and user / password
 impo SIOToolKit # if not in the modules path, specify a path
@@ -95,15 +96,6 @@ PDid             : d094554b00000000
 SDC              : {@{SDCID=0430f6b200000002; IPAddress=192.168.2.153; Name=hvnode3}, @{SDCID=0430f6b100000001;
                    IPAddress=192.168.2.152; Name=hvnode2}, @{SDCID=0430f6b000000000; IPAddress=192.168.2.151;
                    Name=hvnode1}}
-
-
-
-```
-
-```PowerShell
-```
-
-```PowerShell
 ```
 Help
 ==========
