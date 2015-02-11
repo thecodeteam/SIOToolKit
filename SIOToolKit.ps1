@@ -5,7 +5,15 @@ function Connect-SIOmdm
 [CmdletBinding()]
 Param()
 Write-Verbose "Connecting to MDM $Global:mdm"
-$ConnectMDM = scli --mdm_ip $mdm --login --username $siousername --password $siopassword 2>&1 | out-null
+
+
+#decrypting password:
+
+$Ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($siopassword)
+$password = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($Ptr)
+[System.Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($Ptr)
+ 
+$ConnectMDM = scli --mdm_ip $mdm --login --username $siousername --password $password 2>&1 | out-null
 if ($LASTEXITCODE -ne 0)
     {
     switch ($LASTEXITCODE)
@@ -42,8 +50,8 @@ If (!$Global:SIOConnected -or $reconnectSIO -match "Y")
     {
     [System.Net.IPAddress]$Global:mdmip1 = Read-Host -Prompt "Enter IP for MDM1: "
     [System.Net.IPAddress]$Global:mdmip2 = Read-Host -Prompt "Enter IP for MDM2: "
-    $Global:sioUserName = Read-Host "Enter MDM Username: "
-    $Global:sioPassword = Read-Host "Enter MDM Password: "
+    $Global:sioUserName = Read-Host -Prompt "Enter MDM Username: "
+    $Global:sioPassword = Read-Host -Prompt "Enter MDM Password: " -AsSecureString
     $Global:mdm = "$mdmip1,$mdmip2"
     }
 #>

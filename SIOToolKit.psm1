@@ -26,7 +26,10 @@ function Connect-SIOmdm
 {
 [CmdletBinding()]
 Param()
-$cmdresult = scli --mdm_ip $Global:mdm --login --username $Global:siousername --password $Global:siopassword 2>&1 
+$Ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($Global:siopassword)
+$password = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($Ptr)
+[System.Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($Ptr)
+$cmdresult = scli --mdm_ip $Global:mdm --login --username $Global:siousername --password $password 2>&1 
 if ($LASTEXITCODE -ne 0)
     {
     Write-Error "Error connecting to MDM"
