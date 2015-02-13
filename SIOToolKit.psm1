@@ -121,7 +121,7 @@ return ($result)
 .FUNCTIONALITY
    The functionality that best describes this cmdlet
 #>
-function Get-SIOPools
+function Show-SIOPools
 {
     [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
                   SupportsShouldProcess=$true, 
@@ -203,7 +203,7 @@ function Get-SIOPools
 .FUNCTIONALITY
    The functionality that best describes this cmdlet
 #>
-function Get-SIOVolumes
+function Show-SIOVolumes
 {
     [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
                   SupportsShouldProcess=$true, 
@@ -324,7 +324,7 @@ function Get-SIOVolume
                    ValueFromPipelineByPropertyName=$true, 
                    ParameterSetName='1')]
         [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
-        [Alias("ID")] 
+        [Alias("SDCVOLUME_ID_LIST")] 
         $VolumeID,
     # Specify the SIO Volume Name  
         [Parameter(Mandatory=$true, 
@@ -350,7 +350,8 @@ function Get-SIOVolume
             {
             "1"
                 {
-                $Volumequery = scli --query_volume --volume_id $VolumeID --mdm_ip $Global:mdm  2> $null
+                write-verbose $VolumeID
+                $Volumequery = scli --query_volume --volume_id $VolumeID --mdm_ip $Global:mdm # 2> $null
                 }
             "2"
                 {
@@ -359,12 +360,12 @@ function Get-SIOVolume
             }
         If ($LASTEXITCODE -eq 0)
             {
-            if ($Volumequery -match "Mapped SDSs:")
+            if ($Volumequery -match "Mapped SDCs:")
                 {
                 Write-Verbose "Volume is multimapped"
                 [bool]$MultiMapped = $true
             }
-            if ($Volumequery -match "SDS ID:")
+            if ($Volumequery -match "SDC ID:")
                 {
                 Write-Verbose "Volume is mapped"
                 [bool]$Mapped = $true
@@ -400,25 +401,25 @@ function Get-SIOVolume
         $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Field1 -IDTag $IDTag
         $Object | Add-Member -MemberType NoteProperty -Name ProtectionDomain -Value $Convert.Field1
         $Object | Add-Member -MemberType NoteProperty -Name PDid -Value $Convert.id
-        #####Mapped SDS
+        #####Mapped SDC
         if ($Mapped)
             {
             $SDSout = @()
-            $IDTag = "      SDS ID: "
+            $IDTag = "      SDC ID: "
             $Field2 = "IP: "
-            write-verbose "testing SDS´s"
+            write-verbose "testing SDC´s"
             $SDSlist = $Volumequery | where {$_ -match $IDTag}
             foreach ($SDS in $SDSlist)
                 {
                 $SDSobject = New-Object -TypeName psobject
                 $Convert = Convert-line -Value $SDS -Field1 $Field1 -IDTag $IDTag -Field2 $Field2
-                $SDSObject | Add-Member -MemberType NoteProperty -Name SDSID -Value $Convert.id
+                $SDSObject | Add-Member -MemberType NoteProperty -Name SDCID -Value $Convert.id
                 $SDSObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $Convert.Field1
                 $SDSObject | Add-Member -MemberType NoteProperty -Name VolumeName -Value $convert.Field2
                 $SDSout += $SDSobject
                 }
             
-            $Object | Add-Member -MemberType NoteProperty -Name SDS -Value $SDSout
+            $Object | Add-Member -MemberType NoteProperty -Name SDC -Value $SDSout
 
             }
         Write-Output $object
@@ -617,7 +618,6 @@ function Get-SIOSDS
                 $SDSquery = scli --query_sds --sds_name $SDSName --mdm_ip $Global:mdm 
                 }
         }
-        $LASTEXITCODE
         If ($LASTEXITCODE -eq 0)
             { 
             $Currentsds = $SDSquery | where {$_ -match "SDS $SDSID"}
@@ -736,7 +736,7 @@ $CurrentsdcGuid = $currentsdc[4]
 Write-Verbose "Found SDC $SDC"
 $object = New-Object -TypeName psobject
 $Object | Add-Member -MemberType NoteProperty -Name SDCName -Value $Currentsdcname
-$object | Add-Member -MemberType NoteProperty -Name ID -Value $CurrentsdcID
+$object | Add-Member -MemberType NoteProperty -Name SDCID -Value $CurrentsdcID
 $object | Add-Member -MemberType NoteProperty -Name IP -Value $CurrentsdcIP
 $Object | Add-Member -MemberType NoteProperty -Name State -Value $CurrentsdcState
 $object | Add-Member -MemberType NoteProperty -Name GUID -Value $CurrentsdcGuid
@@ -811,7 +811,7 @@ function Show-SIOSDCs
                     Write-Verbose "Found SDC $SDC"
                     $object = New-Object -TypeName psobject
 		            $Object | Add-Member -MemberType NoteProperty -Name SDCName -Value $CurrentSDCname
-		            $object | Add-Member -MemberType NoteProperty -Name ID -Value $CurrentSDCID
+		            $object | Add-Member -MemberType NoteProperty -Name SDCID -Value $CurrentSDCID
 		            $object | Add-Member -MemberType NoteProperty -Name IP -Value $CurrentSDCIP
 		            $Object | Add-Member -MemberType NoteProperty -Name State -Value $CurrentSDCState
 		            $object | Add-Member -MemberType NoteProperty -Name GUID -Value $CurrentSDCGuid
@@ -1771,7 +1771,14 @@ if ($LASTEXITCODE -ne 1)
                         $Value = $Value.substring(1)
                         write-verbose $Property
                         Write-Verbose $Value
-                        $Object | Add-Member -MemberType NoteProperty -Name "$objecttype$Property" -Value $Value
+                        If ($Value -match ",")
+                            {
+                            $Object | Add-Member -MemberType NoteProperty -Name "$objecttype$Property" -Value $Value.Split(",")
+                            }
+                        else
+                            {
+                            $Object | Add-Member -MemberType NoteProperty -Name "$objecttype$Property" -Value $Value
+                            }
                         }
                     }
                 }
@@ -1781,21 +1788,22 @@ if ($LASTEXITCODE -ne 1)
 }
 }
 
-function Get-SIOvolumeproperties 
+function Get-SIOVolumeProperties 
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("SDCVOLUME_ID_LIST")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$VolumeID
 )
 begin 
 {
-[string]$Props = "USER_DATA_READ_BWC,USER_DATA_WRITE_BWC
+[string]$Props = "USER_DATA_READ_BWC
+USER_DATA_WRITE_BWC
 CHILD_VOLUME_ID_LIST
 NUM_OF_CHILD_VOLUMES
 DESCENDANT_VOLUME_ID_LIST
 NUM_OF_DESCENDANT_VOLUMES
-NUM_OF_MAPPED_SDSS
+NUM_OF_MAPPED_SDCS
 NUM_OF_MAPPED_SCSI_INITIATORS
 ID
 NAME
@@ -1808,7 +1816,7 @@ STORAGE_POOL_ID
 VTREE_ID
 ANCESTOR_ID
 SOURCE_DELETED
-MAPPING_TO_ALL_SDSS_ENABLED
+MAPPING_TO_ALL_SDCS_ENABLED
 USE_RMCACHE"
 $Props = $Props.Replace("`n",",")
 $Props = $Props.Replace("`r","")
@@ -2092,6 +2100,144 @@ process
 {
 Write-Verbose $SDCID
 Get-mdmobjects -props "$Props" -objectid $SDCID -objecttype SDC # -Verbose
+}
+
+end
+{
+}
+}
+
+
+function Get-SIOPDProperties 
+{
+[CmdletBinding()]
+param (
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$PDID
+)
+begin 
+{
+
+[string]$Props = "CAPACITY_LIMIT_IN_KB
+MAX_CAPACITY_IN_KB
+CAPACITY_IN_USE_IN_KB
+THICK_CAPACITY_IN_USE_IN_KB
+THIN_CAPACITY_IN_USE_IN_KB
+SNAP_CAPACITY_IN_USE_IN_KB
+UNREACHABLE_UNUSED_CAPACITY_IN_KB
+UNUSED_CAPACITY_IN_KB
+SNAP_CAPACITY_IN_USE_OCCUPIED_IN_KB
+THIN_CAPACITY_ALLOCATED_IN_KB
+SPARE_CAPACITY_IN_KB
+AVAILABLE_FOR_THICK_ALLOCATION_IN_KB
+PROTECTED_CAPACITY_IN_KB
+DEGRADED_HEALTHY_CAPACITY_IN_KB
+DEGRADED_FAILED_CAPACITY_IN_KB
+FAILED_CAPACITY_IN_KB
+PROTECTED_VAC_IN_KB
+DEGRADED_HEALTHY_VAC_IN_KB
+DEGRADED_FAILED_VAC_IN_KB
+FAILED_VAC_IN_KB
+MOVING_CAPACITY_IN_KB
+ACTIVE_MOVING_CAPACITY_IN_KB
+PENDING_MOVING_CAPACITY_IN_KB
+FWD_REBUILD_CAPACITY_IN_KB
+ACTIVE_FWD_REBUILD_CAPACITY_IN_KB
+PENDING_FWD_REBUILD_CAPACITY_IN_KB
+BCK_REBUILD_CAPACITY_IN_KB
+ACTIVE_BCK_REBUILD_CAPACITY_IN_KB
+PENDING_BCK_REBUILD_CAPACITY_IN_KB
+REBALANCE_CAPACITY_IN_KB
+ACTIVE_REBALANCE_CAPACITY_IN_KB
+PENDING_REBALANCE_CAPACITY_IN_KB
+AT_REST_CAPACITY_IN_KB
+ACTIVE_MOVING_IN_FWD_REBUILD_JOBS
+ACTIVE_MOVING_IN_BCK_REBUILD_JOBS
+ACTIVE_MOVING_IN_REBALANCE_JOBS
+ACTIVE_MOVING_OUT_FWD_REBUILD_JOBS
+ACTIVE_MOVING_OUT_BCK_REBUILD_JOBS
+ACTIVE_MOVING_OUT_REBALANCE_JOBS
+PENDING_MOVING_IN_FWD_REBUILD_JOBS
+PENDING_MOVING_IN_BCK_REBUILD_JOBS
+PENDING_MOVING_IN_REBALANCE_JOBS
+PENDING_MOVING_OUT_FWD_REBUILD_JOBS
+PENDING_MOVING_OUT_BCK_REBUILD_JOBS
+PENDING_MOVING_OUT_REBALANCE_JOBS
+IN_USE_VAC_IN_KB
+PRIMARY_VAC_IN_KB
+SECONDARY_VAC_IN_KB
+REBUILD_WAIT_SEND_Q_LENGTH
+REBALANCE_WAIT_SEND_Q_LENGTH
+REBUILD_PER_RECEIVE_JOB_NET_THROTTLING_IN_KBPS
+REBALANCE_PER_RECEIVE_JOB_NET_THROTTLING_IN_KBPS
+FIXED_READ_ERROR_COUNT
+PRIMARY_READ_BWC
+PRIMARY_READ_FROM_DEV_BWC
+PRIMARY_WRITE_BWC
+SECONDARY_READ_BWC
+SECONDARY_READ_FROM_DEV_BWC
+SECONDARY_WRITE_BWC
+FWD_REBUILD_READ_BWC
+FWD_REBUILD_WRITE_BWC
+BCK_REBUILD_READ_BWC
+BCK_REBUILD_WRITE_BWC
+REBALANCE_READ_BWC
+REBALANCE_WRITE_BWC
+TOTAL_READ_BWC
+TOTAL_WRITE_BWC
+USER_DATA_READ_BWC
+USER_DATA_WRITE_BWC
+RMCACHE_SIZE_IN_KB
+RMCACHE_SIZE_IN_USE_IN_KB
+RMCACHE_ENTRY_EVICTION_SIZE_COUNT_IN_KB
+RMCACHE_BIG_BLOCK_EVICTION_SIZE_COUNT_IN_KB
+RMCACHE_NUM_OF_4KB_ENTRIES
+RMCACHE_NUM_OF_8KB_ENTRIES
+RMCACHE_NUM_OF_16KB_ENTRIES
+RMCACHE_NUM_OF_32KB_ENTRIES
+RMCACHE_NUM_OF_64KB_ENTRIES
+RMCACHE_NUM_OF_128KB_ENTRIES
+RMCACHE_4KB_ENTRY_COUNT
+RMCACHE_8KB_ENTRY_COUNT
+RMCACHE_16KB_ENTRY_COUNT
+RMCACHE_32KB_ENTRY_COUNT
+RMCACHE_64KB_ENTRY_COUNT
+RMCACHE_128KB_ENTRY_COUNT
+RMCACHE_ENTRY_EVICTION_COUNT
+RMCACHE_BIG_BLOCK_EVICTION_COUNT
+RMCACHE_NO_EVICTION_COUNT
+RMCACHE_SKIP_COUNT_LARGE_IO
+RMCACHE_SKIP_COUNT_UNALIGNED_4KB_IO
+RMCACHE_SKIP_COUNT_CACHE_ALL_BUSY
+NUM_OF_UNMAPPED_VOLUMES
+NUM_OF_MAPPED_TO_ALL_VOLUMES
+NUM_OF_THICK_BASE_VOLUMES
+NUM_OF_THIN_BASE_VOLUMES
+NUM_OF_SNAPSHOTS
+NUM_OF_VOLUMES_IN_DELETION
+SDS_ID_LIST
+NUM_OF_SDS
+STORAGE_POOL_ID_LIST
+NUM_OF_STORAGE_POOLS
+NUM_OF_FAULT_SETS
+FAULT_SET_ID_LIST
+ID
+NAME
+STATE
+REBUILD_NETWORK_THROTTLING_ENABLED
+REBALANCE_NETWORK_THROTTLING_ENABLED
+OVERALL_IO_NETWORK_THROTTLING_ENABLED
+REBUILD_NETWORK_THROTTLING
+REBALANCE_NETWORK_THROTTLING
+OVERALL_IO_NETWORK_THROTTLING"
+$Props = $Props.Replace("`n",",")
+$Props = $Props.Replace("`r","")
+Connect-SIOmdm | Out-Null
+}
+process
+{
+Write-Verbose $PDID
+Get-mdmobjects -props "$Props" -objectid $PDID -objecttype PROTECTION_DOMAIN # -Verbose
 }
 
 end

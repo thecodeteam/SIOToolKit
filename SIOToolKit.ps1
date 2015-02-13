@@ -43,15 +43,15 @@ else
     
 if ($Global:SIOConnected)
     {
-    [validateSet('Y','n')]$reconnectSIO = Read-Host -Prompt "reconnect MDM (Y/N): "
+    [validateSet('Y','n')]$reconnectSIO = Read-Host -Prompt "reconnect MDM (Y/N)"
     }
 
 If (!$Global:SIOConnected -or $reconnectSIO -match "Y")
     {
-    [System.Net.IPAddress]$Global:mdmip1 = Read-Host -Prompt "Enter IP for MDM1: "
-    [System.Net.IPAddress]$Global:mdmip2 = Read-Host -Prompt "Enter IP for MDM2: "
-    $Global:sioUserName = Read-Host -Prompt "Enter MDM Username: "
-    $Global:sioPassword = Read-Host -Prompt "Enter MDM Password: " -AsSecureString
+    [System.Net.IPAddress]$Global:mdmip1 = Read-Host -Prompt "Enter IP for MDM1"
+    [System.Net.IPAddress]$Global:mdmip2 = Read-Host -Prompt "Enter IP for MDM2"
+    $Global:sioUserName = Read-Host -Prompt "Enter MDM Username"
+    $Global:sioPassword = Read-Host -Prompt "Enter MDM Password" -AsSecureString
     $Global:mdm = "$mdmip1,$mdmip2"
     }
 #>
