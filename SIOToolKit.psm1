@@ -1,6 +1,11 @@
-﻿$Field1 = "Name: "
+﻿$NameTag = "Name: "
 $PoolPattern = "Storage Pool "
 $PDPattern = "Protection Domain "
+$PrimaryTag ="Primary IP: "
+$SecondaryTag = "Secondary IP: "
+$TieTag = "Tie-Breaker IP: "
+$MgmtTag = "Management IP: "
+$Modetag = "Mode: "
 <#
 .Synopsis
    Short description
@@ -81,20 +86,10 @@ $message = "Do you want to delete the remaining files in the folder?",
 $Yestext = "Yestext",
 $Notext = "notext"
     )
-
-
-
-
-
-
 $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","$Yestext"
-
 $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No","$Notext"
-
 $options = [System.Management.Automation.Host.ChoiceDescription[]]($no, $yes)
-
 $result = $host.ui.PromptForChoice($title, $message, $options, 0)
-
 return ($result)
 }
 
@@ -180,6 +175,92 @@ function Show-SIOPools
     }
 
 }
+
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Show-SIOcluster
+{
+    [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+Param
+    (
+    )
+
+Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    }
+Process
+    {
+    $Cluster = scli --query_cluster --mdm_ip $Global:mdm 2> $null
+    $object = New-Object -TypeName psobject
+
+    #  Mode: Cluster, Cluster State: Normal, Tie-Breaker State: Connected
+
+    $ClusterMode = $Cluster | where {$_ -match $Modetag}
+    $ClusterMode = $ClusterMode.replace($Modetag,"")
+    $ClusterMode = $ClusterMode.replace("Cluster State: ","")
+    $ClusterMode = $ClusterMode.replace("Tie-Breaker State: ","")
+    $ClusterMode = $ClusterMode.TrimStart(" ")
+    $ClusterMode = $ClusterMode.Split(" ")
+    $Object | Add-Member -MemberType NoteProperty -Name ClusterMode -Value $ClusterMode[0]
+    $Object | Add-Member -MemberType NoteProperty -Name ClusterState -Value $ClusterMode[1]
+    $Object | Add-Member -MemberType NoteProperty -Name TieBreakerState -Value $ClusterMode[2]
+    $ClusterMode = $ClusterMode.Split(" ")
+    $Clustername = $Cluster | where {$_ -match $NameTag}
+    $Clustername = $Clustername.replace($NameTag,"")
+    $Clustername = $Clustername.replace(" ","")
+    $Object | Add-Member -MemberType NoteProperty -Name ClusterName -Value $Clustername
+    $PrimaryIP = $Cluster | where {$_ -match $PrimaryTag}
+    $PrimaryIP = $PrimaryIP.replace($PrimaryTag,"")
+    $PrimaryIP = $PrimaryIP.replace(" ","")
+    $Object | Add-Member -MemberType NoteProperty -Name PrimaryIP -Value $PrimaryIP
+    $SecondaryIP = $Cluster | where {$_ -match $SecondaryTag}
+    $SecondaryIP = $SecondaryIP.replace($SecondaryTag,"")
+    $SecondaryIP = $SecondaryIP.replace(" ","")
+    $Object | Add-Member -MemberType NoteProperty -Name SecondaryIP -Value $SecondaryIP
+    $TieIP = $Cluster | where {$_ -match $TieTag}
+    $TieIP = $TieIP.replace($TieTag,"")
+    $TieIP = $TieIP.replace(" ","")
+    $Object | Add-Member -MemberType NoteProperty -Name TieBreakerIP -Value $TieIP
+    $MgmtIP = $Cluster | where {$_ -match $MgmtTag}
+    $MgmtIP = $MgmtIP.replace($MgmtTag,"")
+    $MgmtIP = $MgmtIP.replace(" ","")
+    $Object | Add-Member -MemberType NoteProperty -Name ManagementIP -Value $MgmtIP
+    Write-Output $object
+    }
+
+    End
+    {
+    }
+
+}
+
 
 <#
 .Synopsis
@@ -382,7 +463,7 @@ function Get-SIOVolume
         ### Volume ####
         
         $IDTag = ">> Volume ID: "
-        $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Field1 -IDTag $IDTag
+        $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
         $Object | Add-Member -MemberType NoteProperty -Name VolumeName -Value $Convert.Field1
         $Object | Add-Member -MemberType NoteProperty -Name VolumeID -Value $Convert.id
         $Object | Add-Member -MemberType NoteProperty -Name Type -Value $Type
@@ -392,13 +473,13 @@ function Get-SIOVolume
 
         #### Pool   ####
         $IDTag = "   Storage Pool "
-        $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Field1 -IDTag $IDTag
+        $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
         $Object | Add-Member -MemberType NoteProperty -Name Pool -Value $Convert.Field1
         $Object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Convert.id
 
         #### Protection Domain   ####
         $IDTag = "   Protection Domain "
-        $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Field1 -IDTag $IDTag
+        $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
         $Object | Add-Member -MemberType NoteProperty -Name ProtectionDomain -Value $Convert.Field1
         $Object | Add-Member -MemberType NoteProperty -Name PDid -Value $Convert.id
         #####Mapped SDC
@@ -412,7 +493,7 @@ function Get-SIOVolume
             foreach ($SDS in $SDSlist)
                 {
                 $SDSobject = New-Object -TypeName psobject
-                $Convert = Convert-line -Value $SDS -Field1 $Field1 -IDTag $IDTag -Field2 $Field2
+                $Convert = Convert-line -Value $SDS -Field1 $Nametag -IDTag $IDTag -Field2 $Field2
                 $SDSObject | Add-Member -MemberType NoteProperty -Name SDCID -Value $Convert.id
                 $SDSObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $Convert.Field1
                 $SDSObject | Add-Member -MemberType NoteProperty -Name VolumeName -Value $convert.Field2
@@ -436,6 +517,101 @@ function Get-SIOVolume
 
 }
 
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Get-SIOVtree
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO Volume ID  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true, 
+                   ParameterSetName='1')]
+        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
+        [Alias("SDC_VOLUME_ID_LIST")] 
+        $VolumeID,
+    # Specify the SIO Volume Name  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true, 
+                   ParameterSetName='2')]
+        [ValidateNotNull()]
+        [ValidateNotNullOrEmpty()]
+        [Alias("Name")] 
+        $VolumeName
+    )
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    
+    }
+    Process
+    {
+        $object = New-Object -TypeName psobject
+        switch ($PsCmdlet.ParameterSetName)
+            {
+            "1"
+                {
+                write-verbose $VolumeID
+                $SIOVolume = Get-SIOVolume -VolumeID $VolumeID
+                }
+            "2"
+                {
+                $SIOVolume = Get-SIOVolume -VolumeName $VolumeName
+                }
+            }
+        If ($SIOVolume)
+            {
+            $VolumeProperties = $SIOVolume | Get-SIOVolumeProperties
+            $VtreeID = $VolumeProperties.VOLUME_VTREE_ID
+            $Vtree = Get-SIOVtreeProperties -VtreeID $VtreeID
+            $Volumetable = foreach ($Volid in $VTREE.VTREE_VOLUME_ID_LIST) { Get-SIOVolume -VolumeID $Volid }
+            $Object | Add-Member -MemberType NoteProperty -Name VTREEID -Value $VTREEID
+            $Object | Add-Member -MemberType NoteProperty -Name VTREEname -Value $Vtree.VTREE_NAME
+            $Object | Add-Member -MemberType NoteProperty -Name VTREEVolumes -Value $Vtree.VTREE_NUM_OF_VOLUMES
+            $Object | Add-Member -MemberType NoteProperty -Name VTREEVolumeIDs -Value $Vtree.VTREE_VOLUME_ID_LIST
+            $object | Add-Member -MemberType NoteProperty -Name Volumes -Value $Volumetable
+            Write-Output $object
+            }
+        Else
+            {
+            Write-Error "Volume $VolumeID $VolumeName not found"
+            }
+        }
+    
+    End
+    {
+    }
+
+}
 
 #SDS ID: 0430f6b000000000 Name: hvnode1 IP: 192.168.2.151 State: Connected GUID: 7202918A-5010-154E-A51E-032A73F2CDC2#
 <#
@@ -1773,11 +1949,11 @@ if ($LASTEXITCODE -ne 1)
                         Write-Verbose $Value
                         If ($Value -match ",")
                             {
-                            $Object | Add-Member -MemberType NoteProperty -Name "$objecttype$Property" -Value $Value.Split(",")
+                            $Object | Add-Member -MemberType NoteProperty -Name $objecttype"_"$Property -Value $Value.Split(",")
                             }
                         else
                             {
-                            $Object | Add-Member -MemberType NoteProperty -Name "$objecttype$Property" -Value $Value
+                            $Object | Add-Member -MemberType NoteProperty -Name $objecttype"_"$Property -Value $Value
                             }
                         }
                     }
@@ -2238,6 +2414,44 @@ process
 {
 Write-Verbose $PDID
 Get-mdmobjects -props "$Props" -objectid $PDID -objecttype PROTECTION_DOMAIN # -Verbose
+}
+
+end
+{
+}
+}
+
+
+
+
+function Get-SIOVtreeProperties 
+{
+[CmdletBinding()]
+param (
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$VtreeID
+)
+begin 
+{
+
+[string]$Props = "NET_CAPACITY_IN_USE_IN_KB
+BASE_NET_CAPACITY_IN_USE_IN_KB
+SNAP_NET_CAPACITY_IN_USE_IN_KB
+TRIMMED_CAPACITY_IN_KB
+VOLUME_ID_LIST
+NUM_OF_VOLUMES
+ID
+NAME
+STORAGE_POOL_ID
+BASE_VOLUME_ID"
+$Props = $Props.Replace("`n",",")
+$Props = $Props.Replace("`r","")
+Connect-SIOmdm | Out-Null
+}
+process
+{
+Write-Verbose $VTREEID
+Get-mdmobjects -props "$Props" -objectid $VtreeID -objecttype VTREE # -Verbose
 }
 
 end
