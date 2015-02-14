@@ -14,20 +14,31 @@ simply follow @hyperv_guy for updates
 
 current exposed commands
 ===========
-
-Connect-SIOmdm
-Connect-SIOVolume
-Disconnect-SIOVolume
-Get-SIOSDCs
-Get-SIOVolume
-Get-SIOVolumes
-New-SIOSnapshot
-New-SIOVolume
-Remove-SIOSnapshotTree
-Remove-SIOSnapshotTreewithParents
-Remove-SIOVolume
-Remove-SIOVolumeTree
-
+```PowerShell
+CommandType     Name                                               ModuleName
+-----------     ----                                               ----------
+Function        Connect-SIOmdm                                     SIOToolKit
+Function        Connect-SIOVolume                                  SIOToolKit
+Function        Disconnect-SIOVolume                               SIOToolKit
+Function        Get-SIOPDProperties                                SIOToolKit
+Function        Get-SIOPoolProperties                              SIOToolKit
+Function        Get-SIOSDC                                         SIOToolKit
+Function        Get-SIOSDCProperties                               SIOToolKit
+Function        Get-SIOSDS                                         SIOToolKit
+Function        Get-SIOSDSProperties                               SIOToolKit
+Function        Get-SIOVolume                                      SIOToolKit
+Function        Get-SIOVolumeProperties                            SIOToolKit
+Function        New-SIOSnapshot                                    SIOToolKit
+Function        New-SIOVolume                                      SIOToolKit
+Function        Remove-SIOSnapshotTree                             SIOToolKit
+Function        Remove-SIOSnapshotTreewithParents                  SIOToolKit
+Function        Remove-SIOVolume                                   SIOToolKit
+Function        Remove-SIOVolumeTree                               SIOToolKit
+Function        Show-SIOPools                                      SIOToolKit
+Function        Show-SIOSDCs                                       SIOToolKit
+Function        Show-SIOSDSs                                       SIOToolKit
+Function        Show-SIOVolumes                                    SIOToolKit
+```
 Installation
 ===========
 Extract the SIOToolkit to the Modules Path or any other path on the MDM.
