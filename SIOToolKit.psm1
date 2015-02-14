@@ -654,14 +654,14 @@ function Get-SIODevice
         [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
         [Alias("DEVICE_ID")] 
         [string]$SIODeviceID,
-    # Specify the SIO Volume Name  
+    # Specify the SDS Name  
         [Parameter(Mandatory=$true, 
                    ValueFromPipelineByPropertyName=$true, 
                    ParameterSetName='1')]
         [ValidateNotNull()]
         [ValidateNotNullOrEmpty()]
         [Alias("Name")] 
-        $SDSId
+        $SDSName
     )
 
     Begin
@@ -676,27 +676,30 @@ function Get-SIODevice
             {
             "1"
                 {
-                # $SIOVolume = Get-SIOVolume -VolumeID $VolumeID
+                $SDS = Get-SIOSDS -SDSName $SDSName
+                foreach ( $DeviceID in $SDS.DeviceIDs)
+                    {
+                    Get-SIODevice -SIODeviceID $DeviceID
+                    }
+
                 }
             "2"
                 {
                 Write-Verbose "Parameter Set by device ID"
-                $SDSDevice = Get-SIODeviceProperties -SIODeviceID $SIODeviceID
+                $Private:SDSDevice = Get-SIODeviceProperties -SIODeviceID $SIODeviceID
                 }
             }
-        If ($SDSDevice)
+        If ($Private:SDSDevice)
             {
             Write-Verbose "got Device $DeviceID"
-            $Object | Add-Member -MemberType NoteProperty -Name DeviceName -Value $SDSDevice.DEVICE_NAME
-            $Object | Add-Member -MemberType NoteProperty -Name DevicePath -Value $SDSDevice.DEVICE_CURRENT_PATH
-            $Object | Add-Member -MemberType NoteProperty -Name Capacity -Value $SDSDevice.DEVICE_MAX_CAPACITY
-            $Object | Add-Member -MemberType NoteProperty -Name DeviceError $SDSDevice.DEVICE_ERR_STATE
-            $object | Add-Member -MemberType NoteProperty -Name State -Value $SDSDevice.DEVICE_STATE
+            $Object | Add-Member -MemberType NoteProperty -Name DeviceName -Value $Private:SDSDevice.DEVICE_NAME
+            $Object | Add-Member -MemberType NoteProperty -Name DevicePath -Value $Private:SDSDevice.DEVICE_CURRENT_PATH
+            $object | Add-Member -MemberType NoteProperty -Name SDSId -Value $Private:SDSDevice.DEVICE_SDS_ID
+            $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Private:SDSDevice.DEVICE_STORAGE_POOL_ID
+            $Object | Add-Member -MemberType NoteProperty -Name Capacity -Value $Private:SDSDevice.DEVICE_MAX_CAPACITY
+            $Object | Add-Member -MemberType NoteProperty -Name DeviceError $Private:SDSDevice.DEVICE_ERR_STATE
+            $object | Add-Member -MemberType NoteProperty -Name State -Value $Private:SDSDevice.DEVICE_STATE
             Write-Output $object
-            }
-        Else
-            {
-            Write-Error "Device $DeviceID not found"
             }
         }
     
