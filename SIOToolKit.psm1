@@ -613,6 +613,100 @@ function Get-SIOVtree
 
 }
 
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Get-SIODevice
+{
+    [CmdletBinding(DefaultParameterSetName='2', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO Device  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true, 
+                   ParameterSetName='2')]
+        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
+        [Alias("DEVICE_ID")] 
+        [string]$SIODeviceID,
+    # Specify the SIO Volume Name  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true, 
+                   ParameterSetName='1')]
+        [ValidateNotNull()]
+        [ValidateNotNullOrEmpty()]
+        [Alias("Name")] 
+        $SDSId
+    )
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    
+    }
+    Process
+    {
+        $object = New-Object -TypeName psobject
+        switch ($PsCmdlet.ParameterSetName)
+            {
+            "1"
+                {
+                # $SIOVolume = Get-SIOVolume -VolumeID $VolumeID
+                }
+            "2"
+                {
+                Write-Verbose "Parameter Set by device ID"
+                $SDSDevice = Get-SIODeviceProperties -SIODeviceID $SIODeviceID
+                }
+            }
+        If ($SDSDevice)
+            {
+            Write-Verbose "got Device $DeviceID"
+            $Object | Add-Member -MemberType NoteProperty -Name DeviceName -Value $SDSDevice.DEVICE_NAME
+            $Object | Add-Member -MemberType NoteProperty -Name DevicePath -Value $SDSDevice.DEVICE_CURRENT_PATH
+            $Object | Add-Member -MemberType NoteProperty -Name Capacity -Value $SDSDevice.DEVICE_MAX_CAPACITY
+            $Object | Add-Member -MemberType NoteProperty -Name DeviceError $SDSDevice.DEVICE_ERR_STATE
+            $object | Add-Member -MemberType NoteProperty -Name State -Value $SDSDevice.DEVICE_STATE
+            Write-Output $object
+            }
+        Else
+            {
+            Write-Error "Device $DeviceID not found"
+            }
+        }
+    
+    End
+    {
+    }
+
+}
+
+
 #SDS ID: 0430f6b000000000 Name: hvnode1 IP: 192.168.2.151 State: Connected GUID: 7202918A-5010-154E-A51E-032A73F2CDC2#
 <#
 .Synopsis
@@ -808,12 +902,20 @@ function Get-SIOSDS
                     $currentPD = $currentPD.SPlit(' ')
                     $CurrentPDname = $currentPD[1]
                     $CurrentPDID = $currentPD[0]
+            $CurrentDevs =  $SDSquery | where {$_ -match "Original-path:"}
+                    $DeviceID = @()
+                    foreach ($Device in $CurrentDevs)
+                        {
+                        $DeviceID += ($Device.split(" "))[-1]
+                        }
                     Write-Verbose "Found SDS $SDS"
                     $object = New-Object -TypeName psobject
 		            $Object | Add-Member -MemberType NoteProperty -Name SDSName -Value $CurrentSDSname
 		            $object | Add-Member -MemberType NoteProperty -Name SDSID -Value $CurrentSDSID
 		            $object | Add-Member -MemberType NoteProperty -Name PDName -Value $CurrentPDname
 		            $Object | Add-Member -MemberType NoteProperty -Name PDID -Value $CurrentPDID
+		            $Object | Add-Member -MemberType NoteProperty -Name DeviceIDs -Value $DeviceID
+
                     Write-Output $object
                 }
 
@@ -922,6 +1024,85 @@ Write-Output $object
 End
 {
 }
+}
+
+
+#SDC ID: 0430f6b000000000 Name: hvnode1 IP: 192.168.2.151 State: Connected GUID: 7202918A-5010-154E-A51E-032A73F2CDC2#
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+        ID:      85e22974f30ae694
+        Name:     ScaleIO@labbuildr
+
+License info:
+        Installation ID: d078c73806bc9481
+        SWID:
+        Maximum capacity: Unlimited
+        Usage time left: 20 days (Initial License)
+        Enterprise features: Enabled
+        The system was activated 10 days ago
+#>
+function Show-SIOSystemInfo
+{
+    [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    Param
+    (
+    )
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    }
+    Process
+    {
+    $Systeminfo = scli --query_all --mdm_ip $mdm 2> $sclierror
+    $Product = $Systeminfo | Where {$_ -match "Product:  "}
+    $Product = $Product.replace("`t","")
+    $Product = $Product.Replace("Product:  ","")
+    $Product = $Product.Replace("Version:",",")
+    $Product = $Product.SPlit(',')
+    $SystemID = $Systeminfo | Where {$_ -match "ID:  "}
+    $SystemID = $SystemID.replace("`t","")
+    $SystemID = $SystemID.Replace("ID:  ","")
+    $SystemID = $SystemID.Replace(" ","")
+    $SystemName = $Systeminfo | Where {$_ -match "Name:  "}
+    $SystemName = $SystemName.replace("`t","")
+    $SystemName = $SystemName.Replace("Name:  ","")
+    $SystemName = $SystemName.Replace(" ","")
+
+
+    $object = New-Object -TypeName psobject
+	$Object | Add-Member -MemberType NoteProperty -Name Product -Value $Product[0]
+	$object | Add-Member -MemberType NoteProperty -Name Version -Value $Product[1].TrimStart(" ")
+	$Object | Add-Member -MemberType NoteProperty -Name SystemID -Value $SystemID
+	$Object | Add-Member -MemberType NoteProperty -Name SystemName -Value $SystemName
+
+    Write-Output $object
+    }
+    End
+    {}
 }
 
 #SDC ID: 0430f6b000000000 Name: hvnode1 IP: 192.168.2.151 State: Connected GUID: 7202918A-5010-154E-A51E-032A73F2CDC2#
@@ -2452,6 +2633,256 @@ process
 {
 Write-Verbose $VTREEID
 Get-mdmobjects -props "$Props" -objectid $VtreeID -objecttype VTREE # -Verbose
+}
+
+end
+{
+}
+}
+
+
+
+
+function Get-SIOSystemProperties 
+{
+[CmdletBinding()]
+param (
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$SystemID
+)
+begin 
+{
+
+[string]$Props = "CAPACITY_LIMIT_IN_KB
+MAX_CAPACITY_IN_KB
+CAPACITY_IN_USE_IN_KB
+THICK_CAPACITY_IN_USE_IN_KB
+THIN_CAPACITY_IN_USE_IN_KB
+SNAP_CAPACITY_IN_USE_IN_KB
+UNREACHABLE_UNUSED_CAPACITY_IN_KB
+UNUSED_CAPACITY_IN_KB
+SNAP_CAPACITY_IN_USE_OCCUPIED_IN_KB
+THIN_CAPACITY_ALLOCATED_IN_KB
+SPARE_CAPACITY_IN_KB
+AVAILABLE_FOR_THICK_ALLOCATION_IN_KB
+PROTECTED_CAPACITY_IN_KB
+DEGRADED_HEALTHY_CAPACITY_IN_KB
+DEGRADED_FAILED_CAPACITY_IN_KB
+FAILED_CAPACITY_IN_KB
+PROTECTED_VAC_IN_KB
+DEGRADED_HEALTHY_VAC_IN_KB
+DEGRADED_FAILED_VAC_IN_KB
+FAILED_VAC_IN_KB
+MOVING_CAPACITY_IN_KB
+ACTIVE_MOVING_CAPACITY_IN_KB
+PENDING_MOVING_CAPACITY_IN_KB
+FWD_REBUILD_CAPACITY_IN_KB
+ACTIVE_FWD_REBUILD_CAPACITY_IN_KB
+PENDING_FWD_REBUILD_CAPACITY_IN_KB
+BCK_REBUILD_CAPACITY_IN_KB
+ACTIVE_BCK_REBUILD_CAPACITY_IN_KB
+PENDING_BCK_REBUILD_CAPACITY_IN_KB
+REBALANCE_CAPACITY_IN_KB
+ACTIVE_REBALANCE_CAPACITY_IN_KB
+PENDING_REBALANCE_CAPACITY_IN_KB
+AT_REST_CAPACITY_IN_KB
+ACTIVE_MOVING_IN_FWD_REBUILD_JOBS
+ACTIVE_MOVING_IN_BCK_REBUILD_JOBS
+ACTIVE_MOVING_IN_REBALANCE_JOBS
+ACTIVE_MOVING_OUT_FWD_REBUILD_JOBS
+ACTIVE_MOVING_OUT_BCK_REBUILD_JOBS
+ACTIVE_MOVING_OUT_REBALANCE_JOBS
+PENDING_MOVING_IN_FWD_REBUILD_JOBS
+PENDING_MOVING_IN_BCK_REBUILD_JOBS
+PENDING_MOVING_IN_REBALANCE_JOBS
+PENDING_MOVING_OUT_FWD_REBUILD_JOBS
+PENDING_MOVING_OUT_BCK_REBUILD_JOBS
+PENDING_MOVING_OUT_REBALANCE_JOBS
+IN_USE_VAC_IN_KB
+PRIMARY_VAC_IN_KB
+SECONDARY_VAC_IN_KB
+REBUILD_WAIT_SEND_Q_LENGTH
+REBALANCE_WAIT_SEND_Q_LENGTH
+REBUILD_PER_RECEIVE_JOB_NET_THROTTLING_IN_KBPS
+REBALANCE_PER_RECEIVE_JOB_NET_THROTTLING_IN_KBPS
+FIXED_READ_ERROR_COUNT
+PRIMARY_READ_BWC
+PRIMARY_READ_FROM_DEV_BWC
+PRIMARY_WRITE_BWC
+SECONDARY_READ_BWC
+SECONDARY_READ_FROM_DEV_BWC
+SECONDARY_WRITE_BWC
+FWD_REBUILD_READ_BWC
+FWD_REBUILD_WRITE_BWC
+BCK_REBUILD_READ_BWC
+BCK_REBUILD_WRITE_BWC
+REBALANCE_READ_BWC
+REBALANCE_WRITE_BWC
+TOTAL_READ_BWC
+TOTAL_WRITE_BWC
+USER_DATA_READ_BWC
+USER_DATA_WRITE_BWC
+RMCACHE_SIZE_IN_KB
+RMCACHE_SIZE_IN_USE_IN_KB
+RMCACHE_ENTRY_EVICTION_SIZE_COUNT_IN_KB
+RMCACHE_BIG_BLOCK_EVICTION_SIZE_COUNT_IN_KB
+RMCACHE_NUM_OF_4KB_ENTRIES
+RMCACHE_NUM_OF_8KB_ENTRIES
+RMCACHE_NUM_OF_16KB_ENTRIES
+RMCACHE_NUM_OF_32KB_ENTRIES
+RMCACHE_NUM_OF_64KB_ENTRIES
+RMCACHE_NUM_OF_128KB_ENTRIES
+RMCACHE_4KB_ENTRY_COUNT
+RMCACHE_8KB_ENTRY_COUNT
+RMCACHE_16KB_ENTRY_COUNT
+RMCACHE_32KB_ENTRY_COUNT
+RMCACHE_64KB_ENTRY_COUNT
+RMCACHE_128KB_ENTRY_COUNT
+RMCACHE_ENTRY_EVICTION_COUNT
+RMCACHE_BIG_BLOCK_EVICTION_COUNT
+RMCACHE_NO_EVICTION_COUNT
+RMCACHE_SKIP_COUNT_LARGE_IO
+RMCACHE_SKIP_COUNT_UNALIGNED_4KB_IO
+RMCACHE_SKIP_COUNT_CACHE_ALL_BUSY
+NUM_OF_UNMAPPED_VOLUMES
+NUM_OF_MAPPED_TO_ALL_VOLUMES
+NUM_OF_THICK_BASE_VOLUMES
+NUM_OF_THIN_BASE_VOLUMES
+NUM_OF_SNAPSHOTS
+NUM_OF_VOLUMES_IN_DELETION
+NUM_OF_DEVICES
+NUM_OF_SDS
+NUM_OF_STORAGE_POOLS
+NUM_OF_VOLUMES
+NUM_OF_VTREES
+SCSI_INITIATOR_ID_LIST
+NUM_OF_SCSI_INITIATORS
+PROTECTION_DOMAIN_ID_LIST
+NUM_OF_PROTECTION_DOMAINS
+SDC_ID_LIST
+NUM_OF_SDC
+NUM_OF_FAULT_SETS
+ID
+NAME
+VERSION_NAME
+DEFAULT_VOL_OBFUSCATION
+CAPACITY_ALERT_HIGH_THRESHOLD
+CAPACITY_ALERT_CRITICAL_THRESHOLD
+INSTALL_ID
+SW_ID
+DAYS_INSTALLED
+MAX_LICENSED_CAPACITY
+CAPACITY_DAYS_LEFT
+OBFUSCATION_DAYS_LEFT
+SNAPSHOTS_DAYS_LEFT
+QOS_DAYS_LEFT
+REPLICATION_DAYS_LEFT
+INITIAL_LICENSE
+THICK_VOLUME_PERCENT
+MDM_MODE
+MDM_CLUSTER_STATE
+PRIMARY_MDM_ACTOR_IPS
+PRIMARY_MDM_ACTOR_PORT
+SECONDARY_MDM_ACTOR_IPS
+SECONDARY_MDM_ACTOR_PORT
+TIEBREAKER_MDM_ACTOR_IPS
+TIEBREAKER_MDM_ACTOR_PORT
+MDM_MGMT_IPS
+MDM_MGMT_PORT
+RESTRICETED_SDC_MODE_ENABLED"
+$Props = $Props.Replace("`n",",")
+$Props = $Props.Replace("`r","")
+Connect-SIOmdm | Out-Null
+}
+process
+{
+Write-Verbose $SystemID
+Get-mdmobjects -props "$Props" -objectid $SystemID -objecttype SYSTEM # -Verbose
+}
+
+end
+{
+}
+}
+
+
+
+function Get-SIODeviceProperties 
+{
+[CmdletBinding()]
+param (
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][string]$SIODeviceID
+)
+begin 
+{
+
+[string]$Props = "CAPACITY_LIMIT_IN_KB
+MAX_CAPACITY_IN_KB
+CAPACITY_IN_USE_IN_KB
+THICK_CAPACITY_IN_USE_IN_KB
+THIN_CAPACITY_IN_USE_IN_KB
+SNAP_CAPACITY_IN_USE_IN_KB
+UNREACHABLE_UNUSED_CAPACITY_IN_KB
+UNUSED_CAPACITY_IN_KB
+SNAP_CAPACITY_IN_USE_OCCUPIED_IN_KB
+THIN_CAPACITY_ALLOCATED_IN_KB
+PROTECTED_VAC_IN_KB
+DEGRADED_HEALTHY_VAC_IN_KB
+DEGRADED_FAILED_VAC_IN_KB
+FAILED_VAC_IN_KB
+ACTIVE_MOVING_IN_FWD_REBUILD_JOBS
+ACTIVE_MOVING_IN_BCK_REBUILD_JOBS
+ACTIVE_MOVING_IN_REBALANCE_JOBS
+ACTIVE_MOVING_OUT_FWD_REBUILD_JOBS
+ACTIVE_MOVING_OUT_BCK_REBUILD_JOBS
+ACTIVE_MOVING_OUT_REBALANCE_JOBS
+PENDING_MOVING_IN_FWD_REBUILD_JOBS
+PENDING_MOVING_IN_BCK_REBUILD_JOBS
+PENDING_MOVING_IN_REBALANCE_JOBS
+PENDING_MOVING_OUT_FWD_REBUILD_JOBS
+PENDING_MOVING_OUT_BCK_REBUILD_JOBS
+PENDING_MOVING_OUT_REBALANCE_JOBS
+IN_USE_VAC_IN_KB
+PRIMARY_VAC_IN_KB
+SECONDARY_VAC_IN_KB
+FIXED_READ_ERROR_COUNT
+PRIMARY_READ_BWC
+PRIMARY_READ_FROM_DEV_BWC
+PRIMARY_WRITE_BWC
+SECONDARY_READ_BWC
+SECONDARY_READ_FROM_DEV_BWC
+SECONDARY_WRITE_BWC
+FWD_REBUILD_READ_BWC
+FWD_REBUILD_WRITE_BWC
+BCK_REBUILD_READ_BWC
+BCK_REBUILD_WRITE_BWC
+REBALANCE_READ_BWC
+REBALANCE_WRITE_BWC
+TOTAL_READ_BWC
+TOTAL_WRITE_BWC
+AVG_READ_SIZE_IN_BYTES
+AVG_WRITE_SIZE_IN_BYTES
+AVG_READ_LATENCY_IN_MICROSEC
+AVG_WRITE_LATENCY_IN_MICROSEC
+ID
+NAME
+CURRENT_PATH
+ORIGINAL_PATH
+STATE
+ERR_STATE
+CAPACITY_LIMIT
+MAX_CAPACITY
+SDS_ID
+STORAGE_POOL_ID"
+$Props = $Props.Replace("`n",",")
+$Props = $Props.Replace("`r","")
+Connect-SIOmdm | Out-Null
+}
+process
+{
+Write-Verbose $SIODeviceID
+Get-mdmobjects -props "$Props" -objectid $SIODeviceID -objecttype DEVICE # -Verbose
 }
 
 end
