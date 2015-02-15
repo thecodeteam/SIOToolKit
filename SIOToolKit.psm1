@@ -93,6 +93,20 @@ $result = $host.ui.PromptForChoice($title, $message, $options, 0)
 return ($result)
 }
 
+function convert-capacity
+{
+param (
+$strCapacity
+)
+
+
+            $strCapacity = $strCapacity.Replace(")","")
+            $strCapacity = $strCapacity.split("(")
+            $strCapacity = $strCapacity[-1]
+            Invoke-Expression "$strCapacity" 2>%1 
+
+
+}
 
 <#
 .Synopsis
@@ -116,7 +130,7 @@ return ($result)
 .FUNCTIONALITY
    The functionality that best describes this cmdlet
 #>
-function Show-SIOPools
+function Show-SIOStoragePools
 {
     [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
                   SupportsShouldProcess=$true, 
@@ -820,6 +834,126 @@ function Get-SIOSDS
 
 }
 
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Get-SIOStoragePool
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO POOL ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Pool_ID")]$PoolID,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Protection_domain_ID","ProtectionDomainID")]$PDID,
+# Specify the SIO POOL Name
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Pool_name")]$PoolName,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("ProtectionDomainName","Protection_Domain_Name")]$PDName
+)   
+  
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    }
+    Process
+    {
+        
+    switch ($PsCmdlet.ParameterSetName)
+       {
+            "1"
+                {
+                $Pool = scli --query_storage_pool --storage_pool_id  $PoolID --mdm_ip $Global:mdm
+                }
+            "2"
+                {
+                $Pool = scli --query_storage_pool --protection_domain_name $PDName --storage_pool_name $PoolName --mdm_ip $Global:mdm
+                }
+            "3"
+                {
+                $Pool = scli --query_storage_pool --protection_domain_id $PDid --storage_pool_name $PoolName --mdm_ip $Global:mdm
+                }
+
+        }
+        If ($LASTEXITCODE -eq 0)
+            {
+            $CurrentThinSize = "0"
+            $CurrentThinVolumes = "0"
+            Write-Verbose "Found Pool $Pool"
+            $CurrentPool = $Pool | where {$_ -match "Storage Pool "}
+            $currentPool = $CurrentPool.Replace("Storage Pool ","")
+            $currentPool = $currentPool.Replace("(Id: ","")
+            $currentPool = $currentPool.Replace(")","")
+            $currentPool = $currentPool.SPlit(' ')
+            $CurrentPoolID = $currentPool[1]
+            $Pool = Get-SIOStoragePoolProperties -PoolID $CurrentPoolID
+            
+
+            $object = New-Object -TypeName psobject
+
+		    $Object | Add-Member -MemberType NoteProperty -Name PoolName -Value $Pool.STORAGE_POOL_NAME
+		    $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Pool.STORAGE_POOL_ID
+            if ([int64]$Capacity = convert-capacity $Pool.STORAGE_POOL_MAX_CAPACITY_IN_KB)
+                {
+                $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value ([int64]$Capacity/1GB)
+                }
+            else
+                {
+		        $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value $Pool.STORAGE_POOL_MAX_CAPACITY_IN_KB
+                }
+            if ([int64]$Capacity = convert-capacity $Pool.STORAGE_POOL_UNUSED_CAPACITY_IN_KB)
+                {
+                $object | Add-Member -MemberType NoteProperty -Name UnusedCapacityGB -Value ([int64]$Capacity/1GB)
+                }
+            else
+                {
+                $object | Add-Member -MemberType NoteProperty -Name UnusedCapacityGB -Value $Pool.STORAGE_POOL_UNUSED_CAPACITY_IN_KB
+                }
+		    $object | Add-Member -MemberType NoteProperty -Name Volumes -Value $Pool.STORAGE_POOL_NUM_OF_VOLUMES
+		    $object | Add-Member -MemberType NoteProperty -Name ThinVolumes -Value $Pool.STORAGE_POOL_NUM_OF_THIN_BASE_VOLUMES
+		    $object | Add-Member -MemberType NoteProperty -Name ThickVolumes -Value $Pool.STORAGE_POOL_NUM_OF_THICK_BASE_VOLUMES
+		    $object | Add-Member -MemberType NoteProperty -Name UnmappedVolumes -Value $Pool.STORAGE_POOL_NUM_OF_UNMAPPED_VOLUMES
+            Write-Output $object
+            }
+
+        Else
+            {
+            Write-Error "SCLI exit : $sclierror"
+            }              
+    }
+    End
+    {
+     }
+
+}
 
 <#
 .Synopsis
@@ -968,16 +1102,14 @@ Param
 # Specify the SIO SDC ID
 [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
-[Alias("ID")]
-$SDCID,
+[Alias("ID")]$SDCID,
 # Specify the SIO SDC Name
-[Parameter(Mandatory=$true,
-ValueFromPipelineByPropertyName=$true,
-ParameterSetName='2')]
-[ValidateNotNull()]
-[ValidateNotNullOrEmpty()]
-[Alias("Name")]
-$SDCName
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")]$SDCName
+<# Specify the SIO SDC GUID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Guid")][string]$SDCguid
+#>
 )
 Begin
 {
@@ -986,16 +1118,21 @@ $mdmmessage = Connect-SIOmdm
 Process
 {
 switch ($PsCmdlet.ParameterSetName)
-{
-"1"
-{
-$sdcquery = scli --query_sdc --sdc_id $SDCID --mdm_ip $Global:mdm
-}
-"2"
-{
-$sdcquery = scli --query_sdc --sdc_name $SDCName --mdm_ip $Global:mdm
-}
-}
+    {
+        "1"
+        {
+        $sdcquery = scli --query_sdc --sdc_id $SDCID --mdm_ip $Global:mdm
+        }
+        "2"
+        {
+        $sdcquery = scli --query_sdc --sdc_name $SDCName --mdm_ip $Global:mdm
+        }
+        "3"
+        {
+        Write-Verbose "query sdc by GUID $SDCguid"
+        $sdcquery = scli --query_sdc --sdc_guid $SDCguid --mdm_ip $Global:mdm
+        }
+    }
 If ($LASTEXITCODE -ne 0)
 {
 write-error "Could not find SDC"
@@ -1030,7 +1167,155 @@ End
 }
 
 
-#SDC ID: 0430f6b000000000 Name: hvnode1 IP: 192.168.2.151 State: Connected GUID: 7202918A-5010-154E-A51E-032A73F2CDC2#
+
+function Rename-SIOSDC
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO SDC ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
+[Alias("ID")]
+$SDCID,
+# Specify the SIO SDC Name
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")]$SDCName,
+<# Specify the SIO SDC GUID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Guid")]$SDCguid,
+#>
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("NewName")]$NewSDCName
+
+)
+Begin
+{
+$mdmmessage = Connect-SIOmdm
+}
+Process
+{
+    switch ($PsCmdlet.ParameterSetName)
+    {
+    "1"
+        {
+        Write-Verbose "query sdc by id $SDCID"
+        $sdcquery = Get-SIOSDC -SDCID $SDCID
+        }
+    "2"
+        {
+        Write-Verbose "query sdc by name $SDCName"
+        $sdcquery = Get-SIOSDC -SDCName $SDCName
+        }
+    "3"
+        {
+        Write-Verbose "query sdc by GUID $SDCguid"
+        $sdcquery = Get-SIOSDC -SDCGuid $SDCguid
+        }
+    }
+    If ($LASTEXITCODE -eq 0)
+        {
+        Write-Verbose  $($sdcquery.sdcid)
+        $rename = scli --rename_sdc --sdc_id $($sdcquery.sdcid) --new_name $NewSDCName --mdm_ip $Global:mdm
+        If ($LASTEXITCODE -eq 0)
+            {
+            get-siosdc -SDCName $NewSDCName
+            }
+        else
+            {
+            Write-Warning $LASTEXITCODE
+            }
+        }
+    else
+        {
+        write-error "Could not find SDC"
+        }
+    }
+
+End
+{
+}
+}
+
+
+
+
+function Rename-SIOStoragePool
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO POOL ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Pool_ID")]$PoolID,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Protection_domain_ID")]$PDID,
+# Specify the SIO POOL Name
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Pool_name")]$PoolName,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Protection_domain_name")]$PDName,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("NewName")]$NewPoolName
+
+)
+Begin
+{
+$mdmmessage = Connect-SIOmdm
+}
+Process
+{
+    switch ($PsCmdlet.ParameterSetName)
+    {
+    "1"
+        {
+        }
+    "2"
+        {
+        Write-Verbose "query by names $PoolName $PDName"
+        $Pool = Show-SIOPools | where {($_.Poolname -match $PoolName) -and ($_.ProtectionDomainName -eq $PDName)}
+        }
+    "3"
+        {
+        }
+
+    }
+   If ($Pool)
+        {
+        Write-Verbose  $($Pool.PoolName)
+        $rename = scli --rename_storage_pool --storage_pool_id $($Pool.PoolID) --protection_domain_id $($Pool.ProtectionDomainID) --new_name $NewPoolName --mdm_ip $Global:mdm
+        If ($LASTEXITCODE -eq 0)
+            {
+            Show-SIOPools | where {($_.Poolname -match $NewPoolName) -and ($_.ProtectionDomainName -eq $PDName)}
+            }
+        else
+            {
+            Write-Warning $LASTEXITCODE
+            }
+        }
+    else
+        {
+        write-error "Could not find Pool"
+        }
+    }
+
+End
+{
+}
+}
+
+
+
+
 <#
 .Synopsis
    Short description
@@ -2152,7 +2437,7 @@ function Get-SIOVolumeProperties
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("SDCVOLUME_ID_LIST")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("SDCVOLUME_ID_LIST")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$VolumeID
 )
 begin 
@@ -2192,11 +2477,11 @@ end
 }
 }
 
-function Get-SIOPoolProperties 
+function Get-SIOStoragePoolProperties 
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$PoolID
 )
 begin 
@@ -2322,7 +2607,7 @@ function Get-SIOSDSProperties
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$SDSID
 )
 begin 
@@ -2436,7 +2721,7 @@ function Get-SIOSDCProperties
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$SDCID
 )
 begin 
@@ -2472,7 +2757,7 @@ function Get-SIOPDProperties
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$PDID
 )
 begin 
@@ -2612,7 +2897,7 @@ function Get-SIOVtreeProperties
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$VtreeID
 )
 begin 
@@ -2650,7 +2935,7 @@ function Get-SIOSystemProperties
 {
 [CmdletBinding()]
 param (
-[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$SystemID
 )
 begin 
