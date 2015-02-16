@@ -103,8 +103,12 @@ $strCapacity
             $strCapacity = $strCapacity.Replace(")","")
             $strCapacity = $strCapacity.split("(")
             $strCapacity = $strCapacity[-1]
-            Invoke-Expression "$strCapacity" 2>%1 
+            [System.Double]$MathCapacity = Invoke-Expression "$strCapacity" 2>%1 
+            if ($MathCapacity)
+                {
 
+                $MathCapacity/1GB
+                }
 
 }
 
@@ -474,6 +478,10 @@ function Get-SIOVolume
             {
             $Type = "Thin"
             }
+            elseif ($Volumequery -Match " Thick")
+            {
+            $type = "Thick"
+            }
         ### Volume ####
         
         $IDTag = ">> Volume ID: "
@@ -653,28 +661,16 @@ function Get-SIOVtree
 #>
 function Get-SIODevice
 {
-    [CmdletBinding(DefaultParameterSetName='2', 
-                  SupportsShouldProcess=$true, 
-                  PositionalBinding=$false,
-                  HelpUri = 'http://labbuildr.com/',
-                  ConfirmImpact='Medium')]
-    # [OutputType([String])]
+    [CmdletBinding(DefaultParameterSetName='2',SupportsShouldProcess=$true,PositionalBinding=$false,HelpUri = 'http://labbuildr.com/',ConfirmImpact='Medium')]
     Param
     (
     # Specify the SIO Device  
-        [Parameter(Mandatory=$true, 
-                   ValueFromPipelineByPropertyName=$true, 
-                   ParameterSetName='2')]
-        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
-        [Alias("DEVICE_ID")] 
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("DEVICE_ID")] 
         [string]$SIODeviceID,
     # Specify the SDS Name  
-        [Parameter(Mandatory=$true, 
-                   ValueFromPipelineByPropertyName=$true, 
-                   ParameterSetName='1')]
-        [ValidateNotNull()]
-        [ValidateNotNullOrEmpty()]
-        [Alias("Name")] 
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+        [ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")] 
         $SDSName
     )
 
@@ -693,6 +689,7 @@ function Get-SIODevice
                 $SDS = Get-SIOSDS -SDSName $SDSName
                 foreach ( $DeviceID in $SDS.DeviceIDs)
                     {
+                    Write-Verbose "Parameter Set by SDSNAME"
                     Get-SIODevice -SIODeviceID $DeviceID
                     }
 
@@ -710,7 +707,15 @@ function Get-SIODevice
             $Object | Add-Member -MemberType NoteProperty -Name DevicePath -Value $Private:SDSDevice.DEVICE_CURRENT_PATH
             $object | Add-Member -MemberType NoteProperty -Name SDSId -Value $Private:SDSDevice.DEVICE_SDS_ID
             $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Private:SDSDevice.DEVICE_STORAGE_POOL_ID
-            $Object | Add-Member -MemberType NoteProperty -Name Capacity -Value $Private:SDSDevice.DEVICE_MAX_CAPACITY
+            if ([int64]$Capacity = convert-capacity $Private:SDSDevice.DEVICE_MAX_CAPACITY)
+                {
+                $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value $Capacity
+                }
+            else
+                {
+		        $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value $Private:SDSDevice.DEVICE_MAX_CAPACITY
+                }
+           # $Object | Add-Member -MemberType NoteProperty -Name Capacity -Value $Private:SDSDevice.DEVICE_MAX_CAPACITY
             $Object | Add-Member -MemberType NoteProperty -Name DeviceError $Private:SDSDevice.DEVICE_ERR_STATE
             $object | Add-Member -MemberType NoteProperty -Name State -Value $Private:SDSDevice.DEVICE_STATE
             Write-Output $object
@@ -746,7 +751,7 @@ function Get-SIODevice
    The role this cmdlet belongs to
 .FUNCTIONALITY
    The functionality that best describes this cmdlet
-#>
+
 function Get-SIOSDS
 {
     [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
@@ -833,7 +838,7 @@ function Get-SIOSDS
      }
 
 }
-
+#>
 <#
 .Synopsis
    Short description
@@ -923,7 +928,7 @@ Param
 		    $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Pool.STORAGE_POOL_ID
             if ([int64]$Capacity = convert-capacity $Pool.STORAGE_POOL_MAX_CAPACITY_IN_KB)
                 {
-                $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value ([int64]$Capacity/1GB)
+                $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value ([int64]$Capacity)
                 }
             else
                 {
@@ -931,7 +936,7 @@ Param
                 }
             if ([int64]$Capacity = convert-capacity $Pool.STORAGE_POOL_UNUSED_CAPACITY_IN_KB)
                 {
-                $object | Add-Member -MemberType NoteProperty -Name UnusedCapacityGB -Value ([int64]$Capacity/1GB)
+                $object | Add-Member -MemberType NoteProperty -Name UnusedCapacityGB -Value ([int64]$Capacity)
                 }
             else
                 {
@@ -1152,6 +1157,7 @@ $CurrentsdcIP = $currentsdc[2]
 $CurrentsdcState = $currentsdc[3]
 $CurrentsdcGuid = $currentsdc[4]
 Write-Verbose "Found SDC $SDC"
+
 $object = New-Object -TypeName psobject
 $Object | Add-Member -MemberType NoteProperty -Name SDCName -Value $Currentsdcname
 $object | Add-Member -MemberType NoteProperty -Name SDCID -Value $CurrentsdcID
@@ -1166,6 +1172,131 @@ End
 }
 }
 
+<#
+.Synopsis
+Short description
+.DESCRIPTION
+Long description
+.EXAMPLE
+Example of how to use this cmdlet
+.EXAMPLE
+Another example of how to use this cmdlet
+.INPUTS
+Inputs to this cmdlet (if any)
+.OUTPUTS
+Output from this cmdlet (if any)
+.NOTES
+General notes
+.COMPONENT
+The component this cmdlet belongs to
+.ROLE
+The role this cmdlet belongs to
+.FUNCTIONALITY
+The functionality that best describes this cmdlet
+#>
+function Get-SIOSDCvolume
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO SDC ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
+[Alias("ID")]$SDCID,
+# Specify the SIO SDC Name
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")]$SDCName
+<# Specify the SIO SDC GUID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Guid")][string]$SDCguid
+#>
+)
+Begin
+{
+# $mdmmessage = Connect-SIOmdm
+}
+Process
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+        "1"
+        {
+        Write-Verbose "Query by ID"
+        $private:sdcproperties = Get-SIOSDCProperties -SDCID $SDCID
+        }
+        "2"
+        {
+        $sdcquery = Get-SIOSDC -SDCName $SDCName
+        if ($sdcquery)
+            {
+            $sdcquery
+            $private:sdcproperties = Get-SIOSDCProperties -SDCID $sdcquery.SDCID
+            }
+        }
+        "3"
+        {
+        Write-Verbose "query sdc device by deviceid"
+        #$sdcquery = scli --query_sdc --sdc_guid $SDCguid --mdm_ip $Global:mdm
+        }
+    }
+
+foreach ($private:volumeid in $private:sdcproperties.SDC_VOLUME_ID_LIST)
+
+    {
+    write-verbose $volumeid
+    If ( $volumeid -match "[0-9A-F]{16}")
+    {
+    $private:Volumeprop = Get-SIOVolumeProperties -VolumeID $private:volumeid -ErrorAction SilentlyContinue
+    
+    $object = New-Object -TypeName psobject
+    $object | Add-Member -MemberType NoteProperty -Name VolumeID -Value $private:Volumeprop.VOLUME_ID
+    $object | Add-Member -MemberType NoteProperty -Name VolumeName -Value $private:Volumeprop.VOLUME_NAME
+    $object | Add-Member -MemberType NoteProperty -Name SDCNAME -Value $private:sdcproperties.SDC_NAME
+    if ([System.Double]$Capacity = convert-capacity $private:Volumeprop.VOLUME_SIZE)
+        {
+        $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value ([System.Double]$Capacity)
+        }
+    else
+        {
+        $object | Add-Member -MemberType NoteProperty -Name Capacity -Value $private:Volumeprop.VOLUME_SIZE
+        }
+    $object | Add-Member -MemberType NoteProperty -Name VolumeType -Value $private:Volumeprop.VOLUME_TYPE
+
+    Write-Output $object
+    }
+
+    }
+    <#
+$currentsdc = $SDCquery.Replace("SDC ID: ","")
+$currentsdc = $currentsdc.Replace(" Name:","")
+$currentsdc = $currentsdc.Replace(" IP:","")
+$currentsdc = $currentsdc.Replace(" State:","")
+$currentsdc = $currentsdc.Replace(" GUID:","")
+$currentsdc = $currentsdc.SPlit(' ')
+$Currentsdcname = $currentsdc[1]
+$CurrentsdcID = $currentsdc[0]
+$CurrentsdcIP = $currentsdc[2]
+$CurrentsdcState = $currentsdc[3]
+$CurrentsdcGuid = $currentsdc[4]
+Write-Verbose "Found SDC $SDC"
+
+$object = New-Object -TypeName psobject
+$Object | Add-Member -MemberType NoteProperty -Name SDCName -Value $Currentsdcname
+$object | Add-Member -MemberType NoteProperty -Name SDCID -Value $CurrentsdcID
+$object | Add-Member -MemberType NoteProperty -Name IP -Value $CurrentsdcIP
+$Object | Add-Member -MemberType NoteProperty -Name State -Value $CurrentsdcState
+$object | Add-Member -MemberType NoteProperty -Name GUID -Value $CurrentsdcGuid
+Write-Output $object
+#>
+}
+End
+{
+}
+}
 
 
 function Rename-SIOSDC
