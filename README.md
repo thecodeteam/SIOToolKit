@@ -1,6 +1,7 @@
-﻿SIOToolKit
+SIOToolKit
 ==========
-----------
+
+
 SIOToolKit is a Powershell wrapper for ScaleIO scli
 
 SIOToolKit requires to be run on a Windows based mdm
@@ -40,8 +41,22 @@ Function        Show-SIOVolumes                                    SIOToolKit
 ```
 Installation
 ===========
+If 
+installing on an mdm where scli/mdm is present:
 Extract the SIOToolkit to the Modules Path or any other path on the MDM.
 Import the Module into Powershell
+
+
+elseif
+If installing Windows Machine where no scli is present:
+Extract the SIOToolkit to the Modules Path or any other path.
+Copy cli.exe from an MDM/Windows Installation to the Modulkes Directory ( not part of the Modules )
+
+
+Import the Module into Powershell
+```PowerShell
+import-module SIOToolKit
+```
 
 Examples
 ===========
