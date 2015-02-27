@@ -4,7 +4,7 @@ SIOToolKit
 
 SIOToolKit is a Powershell wrapper for ScaleIO scli
 
-SIOToolKit requires to be run on a Windows based mdm
+SIOToolKit only requires cli.exe in the modulepath if not running on an mdm
 
 SIOToolKit is community-driven
 
