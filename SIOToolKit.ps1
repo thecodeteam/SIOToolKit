@@ -1,4 +1,42 @@
-﻿
+﻿[CmdletBinding()]
+Param()
+
+function test-scli
+{
+[CmdletBinding()]
+Param()
+write-verbose "checking if SCLI is installed"
+try
+    {
+    $scliversion= scli --version
+    }
+    
+catch [System.Management.Automation.CommandNotFoundException] 
+    {
+    # "Base Exception" 
+    Write-verbose "Could not find SCLI, trying modulepath"
+    if (!(Test-Path $PSScriptRoot\cli.exe))
+        {
+        Write-Error "Neither SCLI installation nor cli.exe in Module Path are found. \n 
+                    if this is not an mdm, please copy cli.exe from a mdm to $PSScriptRoot"
+        break 
+        }
+    else 
+        {
+        Write-Verbose "setting alias for scli"
+        Set-Alias -Name scli -Value "$PSScriptRoot\cli.exe" -Description "ScaleIO SCLI" -Verbose -Scope Global
+        $scliversion= scli --version
+        }
+         
+    }
+$Global:scliversion = $scliversion
+Write-Verbose "Running SCLI $scliversion"
+
+
+}
+
+
+
 
 function Connect-SIOmdm
 {
@@ -13,6 +51,7 @@ $Ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode(
 $password = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($Ptr)
 [System.Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($Ptr)
  
+
 $ConnectMDM = scli --mdm_ip $mdm --login --username $siousername --password $password 2>&1 | out-null
 if ($LASTEXITCODE -ne 0)
     {
@@ -41,10 +80,17 @@ else
 
 }
     
+
+
+test-scli -Verbose
+
+
 if ($Global:SIOConnected)
     {
-    [validateSet('Y','n')]$reconnectSIO = Read-Host -Prompt "reconnect MDM (Y/N)"
+    [validateSet('Y','n')]$reconnectSIO = Read-Host -Prompt "Already Scoped to $Global:mdm, select new MDM (Y/N)"
     }
+
+
 
 If (!$Global:SIOConnected -or $reconnectSIO -match "Y")
     {
