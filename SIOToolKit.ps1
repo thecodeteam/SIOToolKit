@@ -70,7 +70,7 @@ if ($LASTEXITCODE -ne 0)
         }
         
     [bool]$Global:SIOConnected = $false
-    exit
+    break
     }
 else
     {

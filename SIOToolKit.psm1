@@ -93,6 +93,27 @@ $result = $host.ui.PromptForChoice($title, $message, $options, 0)
 return ($result)
 }
 
+
+function convert-perfdata
+{
+param (
+$strPerfdata
+)
+
+
+            $strperfdata = $strperfdata.Replace(")","")
+            $strperfdata = $strperfdata.split("(")
+            $strperfdata = $strperfdata[-1]
+            [System.Double]$Mathperfdata = Invoke-Expression "$strperfdata" 2>%1 
+            if ($Mathperfdata)
+                {
+
+                $Mathperfdata
+                }
+
+}
+
+
 function convert-capacity
 {
 param (
@@ -192,6 +213,112 @@ function Show-SIOStoragePools
     {
     }
 
+}
+
+
+
+<#
+.Synopsis
+Short description
+.DESCRIPTION
+Long description
+.EXAMPLE
+Example of how to use this cmdlet
+.EXAMPLE
+Another example of how to use this cmdlet
+.INPUTS
+Inputs to this cmdlet (if any)
+.OUTPUTS
+Output from this cmdlet (if any)
+.NOTES
+General notes
+.COMPONENT
+The component this cmdlet belongs to
+.ROLE
+The role this cmdlet belongs to
+.FUNCTIONALITY
+The functionality that best describes this cmdlet
+#>
+function Get-SIOVolumePerf
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("SDCVOLUME_ID_LIST")]$VolumeID,
+# Specify the SIO Volume Name  
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")]$VolumeName
+
+
+ )
+Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+
+
+
+[string]$Props = "USER_DATA_READ_BWC
+USER_DATA_WRITE_BWC"
+$Props = $Props.Replace("`n",",")
+$Props = $Props.Replace("`r","")
+
+}
+
+
+
+Process
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+        "1"
+        {
+        $private:Volumeprop = Get-mdmobjects -props "$Props" -objectid $VolumeID -objecttype VOLUME #-Verbose
+        }
+        "2"
+        {
+        $VolumeID = (Get-SIOVolume -VolumeName $VolumeName).VolumeID
+        if ($VolumeID)
+            {
+            $private:Volumeprop = Get-mdmobjects -props "$Props" -objectid $VolumeID -objecttype VOLUME #-Verbose
+            }
+        }
+    }
+            
+            $ReadIOPS = ($private:Volumeprop.VOLUME_USER_DATA_READ_BWC.Split('IOPS'))[0]
+            $ReadBS = ($private:Volumeprop.VOLUME_USER_DATA_READ_BWC.Split('IOPS'))[-1]
+            $ReadBS = ($READBS.Split('Bytesper-second'))[0]
+            $WRITEIOPS = ($private:Volumeprop.VOLUME_USER_DATA_WRITE_BWC.Split('IOPS'))[0]
+            $WRITEBS = ($private:Volumeprop.VOLUME_USER_DATA_WRITE_BWC.Split('IOPS'))[-1]
+            $WRITEBS = ($WRITEBS.Split('Bytesper-second'))[0]
+            $object = New-Object -TypeName psobject
+            $object | Add-Member -MemberType NoteProperty -Name VolumeID -Value $VOLUMEID
+            $object | Add-Member -MemberType NoteProperty -Name ReadIOPS -Value $ReadIOPS
+            $object | Add-Member -MemberType NoteProperty -Name READBytesSec -Value $ReadBS
+            $object | Add-Member -MemberType NoteProperty -Name WriteIOPS -Value $WriteIOPS
+            $object | Add-Member -MemberType NoteProperty -Name WriteBytesSec -Value $WriteBS
+            <#if ([System.Double]$Capacity = convert-capacity $private:Volumeprop.VOLUME_SIZE)
+                {
+                $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value ([System.Double]$Capacity)
+                }
+            else
+                {
+                $object | Add-Member -MemberType NoteProperty -Name Capacity -Value $private:Volumeprop.VOLUME_SIZE
+                } #>
+            
+            Write-Output $object
+    }
+
+
+
+End
+{
+}
 }
 
 
@@ -729,116 +856,7 @@ function Get-SIODevice
 }
 
 
-#SDS ID: 0430f6b000000000 Name: hvnode1 IP: 192.168.2.151 State: Connected GUID: 7202918A-5010-154E-A51E-032A73F2CDC2#
-<#
-.Synopsis
-   Short description
-.DESCRIPTION
-   Long description
-.EXAMPLE
-   Example of how to use this cmdlet
-.EXAMPLE
-   Another example of how to use this cmdlet
-.INPUTS
-   Inputs to this cmdlet (if any)
-.OUTPUTS
-   Output from this cmdlet (if any)
-.NOTES
-   General notes
-.COMPONENT
-   The component this cmdlet belongs to
-.ROLE
-   The role this cmdlet belongs to
-.FUNCTIONALITY
-   The functionality that best describes this cmdlet
 
-function Get-SIOSDS
-{
-    [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
-                  SupportsShouldProcess=$true, 
-                  PositionalBinding=$false,
-                  HelpUri = 'http://labbuildr.com/',
-                  ConfirmImpact='Medium')]
-    Param
-    (
-
-
-        # Specify the SIO SDS ID  
-        [Parameter(Mandatory=$true, 
-                   ValueFromPipelineByPropertyName=$true, 
-                   ParameterSetName='1')]
-        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
-        [Alias("ID")] 
-        $SDSID,
-    # Specify the SIO Volume Name  
-        [Parameter(Mandatory=$true, 
-                   ValueFromPipelineByPropertyName=$true, 
-                   ParameterSetName='2')]
-        [ValidateNotNull()]
-        [ValidateNotNullOrEmpty()]
-        [Alias("Name")] 
-        $SDSName
-    )
-
-
-    Begin
-    {
-    $mdmmessage = Connect-SIOmdm
-    }
-    Process
-    {
-        
-    switch ($PsCmdlet.ParameterSetName)
-       {
-            "1"
-                {
-                $SDSquery = scli --query_SDS --SDS_id $SDSID --mdm_ip $Global:mdm 2> $sclierror
-                    
-                }
-            "2"
-                {
-                $SDSquery = scli --query_SDS --SDS_name $SDSName --mdm_ip $Global:mdm 2> $sclierror
-                }
-        }
-        
-        
-        If ($LASTEXITCODE -eq 0)
-            { 
-            if ($SDSquery -match "SDS ID:")
-                {
-                    $currentSDS = $SDSquery.Replace("SDS ID: ","")
-                    $currentSDS = $currentSDS.Replace(" Name:","")
-                    $currentSDS = $currentSDS.Replace(" IP:","")
-                    $currentSDS = $currentSDS.Replace(" State:","")
-                    $currentSDS = $currentSDS.Replace(" GUID:","")
-                    $currentSDS = $currentSDS.SPlit(' ')
-                    $CurrentSDSname = $currentSDS[1]
-                    $CurrentSDSID = $currentSDS[0]
-                    $CurrentSDSIP = $currentSDS[2]
-                    $CurrentSDSState = $currentSDS[3]
-                    $CurrentSDSGuid = $currentSDS[4]
-                    Write-Verbose "Found SDS $SDS"
-                    $object = New-Object -TypeName psobject
-		            $Object | Add-Member -MemberType NoteProperty -Name SDSName -Value $CurrentSDSname
-		            $object | Add-Member -MemberType NoteProperty -Name SDSID -Value $CurrentSDSID
-		            $object | Add-Member -MemberType NoteProperty -Name IP -Value $CurrentSDSIP
-		            $Object | Add-Member -MemberType NoteProperty -Name State -Value $CurrentSDSState
-		            $object | Add-Member -MemberType NoteProperty -Name GUID -Value $CurrentSDSGuid
-                    Write-Output $object
-                }
-
-            }
-        Else
-            {
-            Write-Error "SCLI exit : $sclierror"
-            }              
-    }
-    End
-    {
-     }
-
-}
-#>
 <#
 .Synopsis
    Short description
@@ -1233,7 +1251,6 @@ switch ($PsCmdlet.ParameterSetName)
         $sdcquery = Get-SIOSDC -SDCName $SDCName
         if ($sdcquery)
             {
-            $sdcquery
             $private:sdcproperties = Get-SIOSDCProperties -SDCID $sdcquery.SDCID
             }
         }
@@ -2448,12 +2465,13 @@ function New-SIOVolume
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ProtectionDomainName")]$PDName,
     # Specify the SIO Pool Name  
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("PoolName")]$SPName,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("SPID")]$PoolID,
     # Specify the New Volume Name  
-        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false,ParameterSetName='1')][Alias("VN")]$VolumeName,
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][Alias("VN")]$VolumeName,
     # Specify if thin, default thick  
-        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false,ParameterSetName='1')][switch]$Thin,
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][switch]$Thin,
     # Specify the New Volume Size in GB 
-        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false,ParameterSetName='1')][ValidateRange(1,64000)]$SizeInGB
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)][ValidateRange(1,64000)]$SizeInGB
 
 
 
@@ -2491,6 +2509,16 @@ switch ($PsCmdlet.ParameterSetName)
                 }
             "2"
                 {
+                write-verbose "scli --add_volume --storage_pool_id $PoolID --size_gb $SizeInGB $Extraparam --mdm_ip $Global:mdm"
+                If ($VolumeName)
+                    {
+                    $Newvol = scli --add_volume --storage_pool_id $PoolID  --size_gb $SizeInGB --volume_name $VolumeName $Extraparam --mdm_ip $Global:mdm 2> $sclierror
+                    }
+                else
+                    {
+                    $Newvol = scli --add_volume --storage_pool_id $PoolID  --size_gb $SizeInGB $Extraparam --mdm_ip $Global:mdm  2> $sclierror
+                    }
+
                 
                 }
      }
@@ -2511,6 +2539,7 @@ end {
         }
   
 }
+
 
 
 function Get-mdmobjects
