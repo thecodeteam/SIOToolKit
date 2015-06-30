@@ -794,7 +794,7 @@ function Get-SIODevice
     # Specify the SIO Device  
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
         [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("DEVICE_ID")] 
-        [string]$SIODeviceID,
+        [string]$DeviceID,
     # Specify the SDS Name  
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
         [ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")] 
@@ -817,20 +817,21 @@ function Get-SIODevice
                 foreach ( $DeviceID in $SDS.DeviceIDs)
                     {
                     Write-Verbose "Parameter Set by SDSNAME"
-                    Get-SIODevice -SIODeviceID $DeviceID
+                    Get-SIODevice -DeviceID $DeviceID
                     }
 
                 }
             "2"
                 {
                 Write-Verbose "Parameter Set by device ID"
-                $Private:SDSDevice = Get-SIODeviceProperties -SIODeviceID $SIODeviceID
+                $Private:SDSDevice = Get-SIODeviceProperties -DeviceID $DeviceID
                 }
             }
         If ($Private:SDSDevice)
             {
             Write-Verbose "got Device $DeviceID"
             $Object | Add-Member -MemberType NoteProperty -Name DeviceName -Value $Private:SDSDevice.DEVICE_NAME
+            $Object | Add-Member -MemberType NoteProperty -Name DeviceID -Value $Private:SDSDevice.DEVICE_ID
             $Object | Add-Member -MemberType NoteProperty -Name DevicePath -Value $Private:SDSDevice.DEVICE_CURRENT_PATH
             $object | Add-Member -MemberType NoteProperty -Name SDSId -Value $Private:SDSDevice.DEVICE_SDS_ID
             $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Private:SDSDevice.DEVICE_STORAGE_POOL_ID
@@ -855,7 +856,111 @@ function Get-SIODevice
 
 }
 
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Set-SIOScanner
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO POOL ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Pool_ID")]$PoolID,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Protection_domain_ID","ProtectionDomainID")]$PDID,
+# Specify the SIO POOL Name
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
 
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Pool_name")]$PoolName,
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("ProtectionDomainName","Protection_Domain_Name")]$PDName,
+
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)][switch]$enabled,
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][ValidateSet('device_only','data_comparison')]$Scanmode = "device_only",
+[Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][ValidateRange(10,10240)]$BandwidthLimitKB = "1024"
+
+)   
+  
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    }
+    Process
+    {
+    #scli --enable_background_device_scanner   --protection_domain_name pd120 --storage_pool_name#
+    Write-Verbose $Scanmode    
+    switch ($PsCmdlet.ParameterSetName)
+       {
+            "1"
+                {
+                if ($enabled)
+                    {
+                    scli --enable_background_device_scanner --storage_pool_id  $PoolID --scanner_mode $Scanmode --scanner_bandwidth_limit $BandwidthLimitKB --mdm_ip $Global:mdm
+                    }
+                else
+                    {
+                    scli --disable_background_device_scanner --storage_pool_id  $PoolID --mdm_ip $Global:mdm
+                    }
+                }
+            "2"
+                {
+                if ($enabled)
+                    {
+                    scli --enable_background_device_scanner --protection_domain_name $PDName --storage_pool_name $PoolName --scanner_mode $Scanmode --scanner_bandwidth_limit $BandwidthLimitKB --mdm_ip $Global:mdm
+                    }
+                else
+                    {
+                    scli --disable_background_device_scanner --protection_domain_name $PDName --storage_pool_name $PoolName --mdm_ip $Global:mdm
+                    }
+                }
+            "3"
+                {
+                if ($enabled)
+                    {
+                    scli --enable_background_device_scanner --protection_domain_id $PDid --storage_pool_name $PoolName --scanner_mode $Scanmode --scanner_bandwidth_limit $BandwidthLimitKB --mdm_ip $Global:mdm
+                    }
+                else
+                    {
+                    scli --disable_background_device_scanner --protection_domain_id $PDid --storage_pool_name $PoolName --mdm_ip $Global:mdm
+                    }
+                }
+
+        }
+     
+     
+     
+     
+     
+     }
+    end
+    {}
+    }
 
 <#
 .Synopsis
@@ -937,6 +1042,9 @@ Param
             $currentPool = $currentPool.Replace(")","")
             $currentPool = $currentPool.SPlit(' ')
             $CurrentPoolID = $currentPool[1]
+            $Scannner = $Pool | where {$_ -match "Background device scanner:"}
+            $Scannner = $Scannner.Replace("Background device scanner: ","")
+            $Scannner = $Scannner.Replace("`t","")
             $Pool = Get-SIOStoragePoolProperties -PoolID $CurrentPoolID
             
 
@@ -944,6 +1052,8 @@ Param
 
 		    $Object | Add-Member -MemberType NoteProperty -Name PoolName -Value $Pool.STORAGE_POOL_NAME
 		    $object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Pool.STORAGE_POOL_ID
+		    $object | Add-Member -MemberType NoteProperty -Name BackgroundScanner -Value $Scannner
+
             if ([int64]$Capacity = convert-capacity $Pool.STORAGE_POOL_MAX_CAPACITY_IN_KB)
                 {
                 $object | Add-Member -MemberType NoteProperty -Name CapacityGB -Value ([int64]$Capacity)
@@ -1519,6 +1629,11 @@ function Show-SIOSystemInfo
     $Product = $Product.Replace("Product:  ","")
     $Product = $Product.Replace("Version:",",")
     $Product = $Product.SPlit(',')
+    $managerID = $Systeminfo | Where {$_ -match "Manager ID:  "}
+    $managerID = $managerID.replace("`t","")
+    $managerID = $managerID.Replace("Manager ID:  ","")
+    $managerID = $managerID.Replace(" ","")
+    $Systeminfo = $Systeminfo -notmatch "Manager ID:  "
     $SystemID = $Systeminfo | Where {$_ -match "ID:  "}
     $SystemID = $SystemID.replace("`t","")
     $SystemID = $SystemID.Replace("ID:  ","")
@@ -1527,14 +1642,12 @@ function Show-SIOSystemInfo
     $SystemName = $SystemName.replace("`t","")
     $SystemName = $SystemName.Replace("Name:  ","")
     $SystemName = $SystemName.Replace(" ","")
-
-
     $object = New-Object -TypeName psobject
 	$Object | Add-Member -MemberType NoteProperty -Name Product -Value $Product[0]
 	$object | Add-Member -MemberType NoteProperty -Name Version -Value $Product[1].TrimStart(" ")
 	$Object | Add-Member -MemberType NoteProperty -Name SystemID -Value $SystemID
 	$Object | Add-Member -MemberType NoteProperty -Name SystemName -Value $SystemName
-
+	$Object | Add-Member -MemberType NoteProperty -Name ManagerID -Value $ManagerID
     Write-Output $object
     }
     End
@@ -3269,7 +3382,7 @@ function Get-SIODeviceProperties
 [CmdletBinding()]
 param (
 [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ID")]
-[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][string]$SIODeviceID
+[validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][string]$DeviceID
 )
 begin 
 {
@@ -3340,8 +3453,8 @@ Connect-SIOmdm | Out-Null
 }
 process
 {
-Write-Verbose $SIODeviceID
-Get-mdmobjects -props "$Props" -objectid $SIODeviceID -objecttype DEVICE # -Verbose
+Write-Verbose $DeviceID
+Get-mdmobjects -props "$Props" -objectid $DeviceID -objecttype DEVICE # -Verbose
 }
 
 end
