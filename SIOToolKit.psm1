@@ -645,7 +645,7 @@ function Get-SIOVolume
                 $Convert = Convert-line -Value $SDS -Field1 $Nametag -IDTag $IDTag -Field2 $Field2
                 $SDSObject | Add-Member -MemberType NoteProperty -Name SDCID -Value $Convert.id
                 $SDSObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $Convert.Field1
-                $SDSObject | Add-Member -MemberType NoteProperty -Name VolumeName -Value $convert.Field2
+                $SDSObject | Add-Member -MemberType NoteProperty -Name SDCName -Value $convert.Field2
                 $SDSout += $SDSobject
                 }
             
