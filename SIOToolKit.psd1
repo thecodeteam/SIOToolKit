@@ -11,7 +11,7 @@
 RootModule = '.\SIOToolKit.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.32'
+ModuleVersion = '1.32.1'
 
 # ID used to uniquely identify this module
 GUID = '802f1428-cec5-4033-a80e-71bdac37a489'
