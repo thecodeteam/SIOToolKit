@@ -9,7 +9,6 @@ try
     {
     $scliversion= scli --version
     }
-    
 catch [System.Management.Automation.CommandNotFoundException] 
     {
     # "Base Exception" 
