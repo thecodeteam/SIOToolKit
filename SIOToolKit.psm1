@@ -552,7 +552,8 @@ function Get-SIOVolume
         $VolumeID,
     # Specify the SIO Volume Name  
         [Parameter(Mandatory=$true, 
-                   ValueFromPipelineByPropertyName=$true, 
+                   ValueFromPipelineByPropertyName=$true,
+                   Position = 1, 
                    ParameterSetName='2')]
         [ValidateNotNull()]
         [ValidateNotNullOrEmpty()]
@@ -563,10 +564,10 @@ function Get-SIOVolume
     Begin
     {
     $mdmmessage = Connect-SIOmdm
-    
     }
     Process
     {
+        Write-Verbose "Processing get-siovolume"
         [bool]$Mapped = $false
         [bool]$MultiMapped = $false
         $object = New-Object -TypeName psobject
@@ -579,7 +580,7 @@ function Get-SIOVolume
                 }
             "2"
                 {
-                $Volumequery = scli --query_volume --volume_name $VolumeName --mdm_ip $Global:mdm  2> $null
+                $Volumequery = scli --query_volume --volume_name $VolumeName --mdm_ip $Global:mdm  # 2> $null
                 }
             }
         If ($LASTEXITCODE -eq 0)
@@ -608,7 +609,6 @@ function Get-SIOVolume
             $type = "Thick"
             }
         ### Volume ####
-        
         $IDTag = ">> Volume ID: "
         $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
         $Object | Add-Member -MemberType NoteProperty -Name VolumeName -Value $Convert.Field1
@@ -616,14 +616,11 @@ function Get-SIOVolume
         $Object | Add-Member -MemberType NoteProperty -Name Type -Value $Type
         $object | Add-Member -MemberType NoteProperty -Name Mapped -Value $Mapped
         $object | Add-Member -MemberType NoteProperty -Name MultiMapped -Value $MultiMapped
-
-
         #### Pool   ####
         $IDTag = "   Storage Pool "
         $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
         $Object | Add-Member -MemberType NoteProperty -Name Pool -Value $Convert.Field1
         $Object | Add-Member -MemberType NoteProperty -Name PoolID -Value $Convert.id
-
         #### Protection Domain   ####
         $IDTag = "   Protection Domain "
         $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
@@ -646,18 +643,16 @@ function Get-SIOVolume
                 $SDSObject | Add-Member -MemberType NoteProperty -Name SDCName -Value $convert.Field2
                 $SDSout += $SDSobject
                 }
-            
             $Object | Add-Member -MemberType NoteProperty -Name SDC -Value $SDSout
-
             }
         Write-Output $object
         }
-        If ($LASTEXITCODE -eq 7)
+        Elseif ($LASTEXITCODE -eq 7)
             {
-            Write-Error "Volume $VolumeID $VolumeName not found"
+            Write-Error "Volume $VolumeID $VolumeName not found in function get-siovolume"
+            break
             }
-        }
-    
+    }
     End
     {
     }
@@ -2065,7 +2060,7 @@ switch ($PsCmdlet.ParameterSetName)
      }
 if (!($Volumequery))
     {
-    write-error "Volume $VolumeID $VolumeName not found"
+    write-error "Volume $VolumeID $VolumeName not found in fuction map"
     Break
     }
 if (!($SDC))
@@ -2113,24 +2108,24 @@ end
 #>
 function Remove-SIOVolume
 {
-    [CmdletBinding(DefaultParameterSetName='1', 
+[CmdletBinding(DefaultParameterSetName='1', 
                   SupportsShouldProcess=$true, 
                   PositionalBinding=$false,
                   HelpUri = 'http://labbuildr.com/',
                   ConfirmImpact='Medium')]
-    # [OutputType([String])]
-    Param
+Param
     (
     # Specify the SIO Volume ID  
-        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
         [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
         [Alias("ID")]$VolumeID,
     # Specify the SIO Volume Name  
-        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("Name")]$VolumeName
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("Name")]$VolumeName
     )#end param
 begin {}
 process 
 {
+Write-Verbose "Entering Processing"
 switch ($PsCmdlet.ParameterSetName)
     {
             "1"
@@ -2145,15 +2140,22 @@ switch ($PsCmdlet.ParameterSetName)
      }
 if (!($Volumequery))
     {
-    write-error "Volume $VolumeID $VolumeName not found"
+    write-Warning "Volume $VolumeID $VolumeName not found in function remove"
     Break
     }
 Else
     {
     $Volumequery
+    If  ($VolumeQuery.SDC) 
+        {
+        Write-Warning "Volume $($Volumequery.VolumeName) is Mapped, please unmap with Disconnect-SIOVolume first"
+        Break
+        }
     $commit = 0
     if ($ConfirmPreference -match "low")
-        { $commit = 1 }
+        { 
+        $commit = 1 
+        }
     else
         {
         $commit = Get-yesno -title "Commit Volume Deletion" -message "This will delete the above Volume"
@@ -2162,18 +2164,23 @@ Else
         {
             1
             {
-            scli --remove_volume --volume_id $($Volumequery.VolumeID) --i_am_sure --mdm_ip $Global:mdm 
-            
+            scli --remove_volume --volume_id $($Volumequery.VolumeID) --i_am_sure --mdm_ip $Global:mdm
+            write-verbose $LASTEXITCODE
+            if ($LASTEXITCODE -ne 0)
+                {
+                write-Warning "Error deleting Volume $($Volumequery.VolumeID)"
+                break
+                }
             }
+            0
+            {
+            Write-Warning "Volume Deletion refused by user for Volume $($Volumequery.VolumeID)"
+            }      
         }
     } 
-
-
 }
 end {}
 }
-
-
 
 <#
 .Synopsis
@@ -2565,7 +2572,7 @@ end {
 #>
 function New-SIOVolume
 {
-    [CmdletBinding(DefaultParameterSetName='1', 
+    [CmdletBinding(DefaultParameterSetName='2', 
                   SupportsShouldProcess=$true, 
                   PositionalBinding=$false,
                   HelpUri = 'http://labbuildr.com/',
