@@ -1,6 +1,5 @@
 ﻿[CmdletBinding()]
 Param()
-
 function test-scli
 {
 [CmdletBinding()]

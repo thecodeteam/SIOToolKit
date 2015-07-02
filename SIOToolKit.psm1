@@ -2481,7 +2481,8 @@ begin
 {
 $Snapsource = @()
 $SnaptarGet = @()
-if (!$Snapname) {$SnapName = Get-date -Format hhmmss }$Congroup = $false
+if (!$Snapname) {$SnapName = Get-date -Format hhmmss }
+$Congroup = $false
 
 }
 process 
