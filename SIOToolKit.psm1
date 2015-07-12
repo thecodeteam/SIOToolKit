@@ -511,6 +511,52 @@ function Show-SIOVolumes
 
 }
 
+
+##
+function Show-SIOUsers
+{
+    [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    Param
+    (
+    )
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    }
+    Process
+    {
+        if ($pscmdlet.ShouldProcess("TarGet", "Operation"))
+        {
+        $users = scli --query_users --mdm_ip $Global:mdm 2> $null
+        $Users = $users -notmatch "System has"
+        $Users = $users -notmatch "ID               Role    Need-New-Pass   User Name"
+        $Users = $users -notmatch "------------------------------------------------------------"
+        foreach($user in $users)
+            {
+            $user = $user -Replace("\s+"," ")
+            $User = $user.Split(" ")
+            $object = New-Object -TypeName psobject
+		    $Object | Add-Member -MemberType NoteProperty -Name UserID -Value $User[0]
+            $Object | Add-Member -MemberType NoteProperty -Name UserRole -Value $User[1]
+            $Object | Add-Member -MemberType NoteProperty -Name PWChange -Value $User[2]
+            $Object | Add-Member -MemberType NoteProperty -Name UserName -Value $User[3]
+            Write-Output $object
+            }
+        }
+    }
+    End
+    {
+    }
+
+}
+
+
+##
 <#
 .Synopsis
    Short description
@@ -2084,6 +2130,78 @@ end
 }
 
 
+######
+function Remove-SIOUser
+{
+[CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+Param
+    (
+    # Specify the SIO User ID  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
+        [Alias("ID")]$UserID,
+    # Specify the SIO Volume Name  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("Name")]$UserName
+    )#end param
+begin {}
+process 
+{
+Write-Verbose "Entering Processing"
+Write-Warning "Trying to remove $UserID$UserName"
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                scli --delete_user --user_id $UserID --mdm_ip $Global:mdm #--i_am_sure 
+                }
+            "2"
+                {
+                scli --delete_user --username $UserName --mdm_ip $Global:mdm #--i_am_sure 
+
+                }
+     }
+if ($LASTEXITCODE -eq 0){Write-Warning "Removed User $Username$UserID"}
+else {Write-Warning "Error removing User $Username$UserID"}
+ 
+ <#
+    $commit = 0
+    if ($ConfirmPreference -match "low")
+        { 
+        $commit = 1 
+        }
+    else
+        {
+        $commit = Get-yesno -title "Commit Volume Deletion" -message "This will delete the above Volume"
+        }
+    Switch ($commit)
+        {
+            1
+            {
+            scli --remove_volume --volume_id $($Volumequery.VolumeID) --i_am_sure --mdm_ip $Global:mdm
+            write-verbose $LASTEXITCODE
+            if ($LASTEXITCODE -ne 0)
+                {
+                write-Warning "Error deleting Volume $($Volumequery.VolumeID)"
+                break
+                }
+            }
+            0
+            {
+            Write-Warning "Volume Deletion refused by user for Volume $($Volumequery.VolumeID)"
+            }      
+        }
+    }
+   #>  
+}
+end {}
+}
+
+#####
+
 <#
 .Synopsis
    Short description
@@ -2546,6 +2664,62 @@ end {
 
 }
 }
+
+
+###
+
+
+function New-SIOUser
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Username
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+        [validateLength(3,16)]
+        # [ValidatePattern("[0-9A-Za-z]{16}")]
+        [Alias("Name")]$Username,
+    # Specify the user Role  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][ValidateSet("Monitor","Configure","Administrator")][Alias("Role")]$UserRole
+    )#end param
+begin 
+{
+}
+process 
+{
+$NewUser = scli --add_user --username $Username --user_role $UserRole --mdm_ip $Global:mdm #2> $sclierror
+
+if ($LASTEXITCODE -eq "0")
+    {
+    Write-Verbose $NewUser
+    $NewUser = $NewUser.split("=")
+    $Userid = ($NewUser.Split(".")[1])
+    $Password = ($NewUser.split("is:")[-1])
+    $Password = $Password.replace(" ","")
+    $Password = $Password.Substring(1)
+    $Password = $Password -replace ".$"
+    $object = New-Object -TypeName psobject
+    $Object | Add-Member -MemberType NoteProperty -Name Username -Value $Username
+    $Object | Add-Member -MemberType NoteProperty -Name UserID -Value $Userid
+    $Object | Add-Member -MemberType NoteProperty -Name UserRole -Value $UserRole
+    $Object | Add-Member -MemberType NoteProperty -Name Password -Value $Password
+    Write-Output $object
+    }
+else {Write-Warning "Command failed with Exitcode $LASTEXITCODE"}
+}
+end {
+
+}
+}
+
+
+
+####
 
 
 <#
