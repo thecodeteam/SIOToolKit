@@ -899,23 +899,10 @@ function Get-SIODevice
 .Synopsis
    Short description
 .DESCRIPTION
-   Long description
+   This command enables the background device scanner on the devices in the specified
+    Storage Pool. There are two modes: device only mode, and data comparison mode
 .EXAMPLE
-   Example of how to use this cmdlet
-.EXAMPLE
-   Another example of how to use this cmdlet
-.INPUTS
-   Inputs to this cmdlet (if any)
-.OUTPUTS
-   Output from this cmdlet (if any)
-.NOTES
-   General notes
-.COMPONENT
-   The component this cmdlet belongs to
-.ROLE
-   The role this cmdlet belongs to
-.FUNCTIONALITY
-   The functionality that best describes this cmdlet
+ Set-SIOScanner -PoolName Poollabbuildr -PDName PD_labbuildr -enabled -Scanmode data_comparison -BandwidthLimitKB 1024
 #>
 function Set-SIOScanner
 {
@@ -933,14 +920,20 @@ Param
 [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("Protection_domain_ID","ProtectionDomainID")]$PDID,
 # Specify the SIO POOL Name
 [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
-
 [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
 [ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Pool_name")]$PoolName,
 [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
 [ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("ProtectionDomainName","Protection_Domain_Name")]$PDName,
 
 [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)][switch]$enabled,
+<# Scanner mode of operation:
+• device_only
+Perform read operations. Fix from peer on errors
+• data_comparison
+Perform the device_only test, and compare the data content with peer
+#> 
 [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][ValidateSet('device_only','data_comparison')]$Scanmode = "device_only",
+<# Bandwidth can be tuned from 10 to 10240KBps #>
 [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][ValidateRange(10,10240)]$BandwidthLimitKB = "1024"
 
 )   
