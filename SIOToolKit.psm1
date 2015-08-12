@@ -2721,6 +2721,102 @@ end {
 
 ####
 
+###     scli --add_sds_device --sds_ip $PrimaryIP --device_path $Devicepath --device_name $Devicename --protection_domain_name $ProtectionDomainName --storage_pool_name $StoragePoolName --no_test --mdm_ip $mdm_ip
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Add-SIODevice
+{
+    [CmdletBinding(DefaultParameterSetName='2', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO Protection Domain Name  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ProtectionDomainName")]$PDName,
+    # Specify the SIO Pool Name  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("PoolName")]$SPName,
+    # Specify the IP of SDS  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("IP")]$SDSIP,
+    # [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("SPID")]$PoolID,
+    # Specify the New Device Path Path
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)][Alias("DP")]$DevicePath,
+    # Specify the New Device Path Name
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][Alias("DN")]$DeviceName = $DevicePath
+
+
+
+    )#end param
+begin 
+{
+Connect-SIOmdm | Out-Null
+$Extraparam = ""
+
+if ($Thin.IsPresent)
+    {$Thinparam = "--thin_provisioned"
+    $Extraparam = "$Extraparam $Thinparam"}
+
+Write-Verbose $Extraparam
+$Extraparam = $Extraparam.TrimStart(" ")
+Write-Verbose $Extraparam
+}
+process 
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                $Newdev = scli --add_sds_device --sds_ip $SDSIP --device_path $Devicepath --device_name $Devicename --protection_domain_name $PDName --storage_pool_name $SPName --no_test --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "2"
+                {
+               
+                }
+     }
+
+}
+end {
+        If ($LASTEXITCODE  -eq 0)
+            {
+            $Newdev = $Newdev -replace " ",""
+            $Newdev = ($Newdev -split "ID:")[-1]
+            Get-SIODevice -DeviceID $Newdev
+            }
+        Else
+            {
+            Write-Warning "SCLI exit : Please Check errormessage"
+            }   
+        }
+  
+}
+
+
+
+###
 
 <#
 .Synopsis
