@@ -2719,9 +2719,197 @@ end {
 
 
 
-####
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Remove-SIOSDS
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO PDID
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+    [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$SDSID,
+    # Specify the SIO PDName
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+    [ValidateNotNull()][ValidateNotNullOrEmpty()]$SDSName,
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')][Alias("IP")][ipaddress]$SDSIP
+    )#end param
+begin 
+{
+Connect-SIOmdm | Out-Null
 
-###     scli --add_sds_device --sds_ip $PrimaryIP --device_path $Devicepath --device_name $Devicename --protection_domain_name $ProtectionDomainName --storage_pool_name $StoragePoolName --no_test --mdm_ip $mdm_ip
+}
+process 
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                $SDS = scli --remove_sds --sds_id $SDSID --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "2"
+                {
+                $SDS = scli --remove_sds --sds_name $SDSName --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "3"
+                {
+                $SDS = scli --remove_sds --sds_ip $SDSIP --mdm_ip $Global:mdm # 2> $sclierror
+                }
+     }
+
+}
+end {
+        If ($LASTEXITCODE  -eq 0)
+            {
+            $SDS
+            }
+        Else
+            {
+            Write-Warning "SCLI exit : Please Check errormessage"
+            }   
+        }
+  }
+
+
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Add-SIOSDS
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO PDID
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+    [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")][Alias("ProtectiondomainID")]$PDID,
+    # Specify the SIO PDName
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+    [ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Protectiondomainname")]$PDName,
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)][Alias("IP")][ipaddress]$SDSIP,
+    [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true)]
+    [ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")] 
+    $SDSName
+
+    )#end param
+begin 
+{
+Connect-SIOmdm | Out-Null
+<#$Extraparam = ""
+
+if ($Thin.IsPresent)
+    {$Thinparam = "--thin_provisioned"
+    $Extraparam = "$Extraparam $Thinparam"}
+
+Write-Verbose $Extraparam
+$Extraparam = $Extraparam.TrimStart(" ")
+Write-Verbose $Extraparam
+#>
+}
+process 
+{
+if (!$SDSName)
+    {
+    $SDSName = $SDSIP
+    }
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                $NewSDS = scli --add_sds --sds_ip $SDSIP --protection_domain_id $PDID --sds_name $SDSName --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "2"
+                {
+                $NewSDS = scli --add_sds --sds_ip $SDSIP --protection_domain_name $PDName --sds_name $SDSName --mdm_ip $Global:mdm # 2> $sclierror
+                }
+     }
+
+}
+end {
+        If ($LASTEXITCODE  -eq 0)
+            {
+            $NewSDS
+            }
+        Else
+            {
+            Write-Warning "SCLI exit : Please Check errormessage"
+            }   
+        }
+  
+}
+
+
+<#
+Usage: scli --add_sds_device (--sds_id <ID> | --sds_name <NAME> | --sds_ip <IP>) --device_path <PATH> [--device_name <NAME>] (--storage_pool_name <NAME>) | --storage_pool_id <ID>) [--test_time] [Test Options]
+Description: Add a device to an SDS
+Parameters:
+    --sds_id <ID>                       SDS ID
+    --sds_name <NAME>                   SDS Name
+    --sds_ip <IP>                       SDS IP address
+    --device_name <NAME>                Device Name
+    --device_path <PATH>                SDS storage device path or file path
+                                        A device can be a disk, unmounted partition or a file which represents free space on a mounted device
+    --storage_pool_id <ID>              Storage Pool ID
+    --storage_pool_name <NAME>          Storage Pool name
+    --test_time <TIME>                  The maximum test run-time in seconds. If not specified, the test will be limited by IO size only. 
+                                        When --no_test is selected, this switch is ignored
+Test options: CHOOSE ONE
+    --test_only                         Devices will be tested but not used. 
+                                        Later, use the command activate_sds_device to start using their capacity
+    --no_test                           Devices capacity will be used without any device testing
+    <BLANK>                             Read and write test will be run on devices before their capacity is used
+
+#>
 
 
 <#
@@ -2748,7 +2936,7 @@ end {
 #>
 function Add-SIODevice
 {
-    [CmdletBinding(DefaultParameterSetName='2', 
+    [CmdletBinding(DefaultParameterSetName='1', 
                   SupportsShouldProcess=$true, 
                   PositionalBinding=$false,
                   HelpUri = 'http://labbuildr.com/',
@@ -2756,13 +2944,13 @@ function Add-SIODevice
     # [OutputType([String])]
     Param
     (
-    # Specify the SIO Protection Domain Name  
-        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("ProtectionDomainName")]$PDName,
+    # Specify the SIO PoolID  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("SPID")]$PoolID,
     # Specify the SIO Pool Name  
-        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("PoolName")]$SPName,
-    # Specify the IP of SDS  
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("SPName")]$PoolName,
+    # Specify the IP of SDS
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]  
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][Alias("IP")]$SDSIP,
-    # [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("SPID")]$PoolID,
     # Specify the New Device Path Path
         [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)][Alias("DP")]$DevicePath,
     # Specify the New Device Path Name
@@ -2774,7 +2962,7 @@ function Add-SIODevice
 begin 
 {
 Connect-SIOmdm | Out-Null
-$Extraparam = ""
+<#$Extraparam = ""
 
 if ($Thin.IsPresent)
     {$Thinparam = "--thin_provisioned"
@@ -2783,6 +2971,7 @@ if ($Thin.IsPresent)
 Write-Verbose $Extraparam
 $Extraparam = $Extraparam.TrimStart(" ")
 Write-Verbose $Extraparam
+#>
 }
 process 
 {
@@ -2790,11 +2979,11 @@ switch ($PsCmdlet.ParameterSetName)
     {
             "1"
                 {
-                $Newdev = scli --add_sds_device --sds_ip $SDSIP --device_path $Devicepath --device_name $Devicename --protection_domain_name $PDName --storage_pool_name $SPName --no_test --mdm_ip $Global:mdm # 2> $sclierror
+                $Newdev = scli --add_sds_device --sds_ip $SDSIP --device_path $Devicepath --device_name $Devicename --storage_pool_id $PoolID --no_test --mdm_ip $Global:mdm # 2> $sclierror
                 }
             "2"
                 {
-               
+                $Newdev = scli --add_sds_device --sds_ip $SDSIP --device_path $Devicepath --device_name $Devicename --storage_pool_name $PoolName --no_test --mdm_ip $Global:mdm # 2> $sclierror
                 }
      }
 
@@ -2814,9 +3003,100 @@ end {
   
 }
 
+<###
+Usage: scli --remove_sds_device (--device_id <ID> | ((--sds_id <ID> | --sds_name <NAME> | --sds_ip <IP>) (--device_name <NAME> | --device_path <PATH>)))
+Description: Initiate removal of a storage device from an SDS
+Parameters:
+    --sds_id <ID>                       SDS ID
+    --sds_name <NAME>                   SDS Name
+    --sds_ip <IP>                       SDS IP address
+    --device_id <ID>                    Device ID
+    --device_path <PATH>                SDS storage device path or file path
+    --device_name <NAME>                Device Name
+
+###>
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Remove-SIODevice
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')][ValidateScript({$_ -match [IPAddress]$_ })][ipaddress][Alias("IP")]$SDSIP,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')][Alias("Name")]$SDName,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')][Alias("ID")]$SDSID,
 
 
-###
+    # Specify the New Device Path Path
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)][Alias("DP")]$DevicePath,
+    # Specify the New Device Path Name
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$false)][Alias("DN")]$DeviceName
+
+
+
+    )#end param
+begin 
+{
+Connect-SIOmdm | Out-Null
+}
+process 
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                $Removedev = scli --remove_sds_device --sds_ip $SDSIP --device_path $Devicepath --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "2"
+                {
+                $Removedev = scli --remove_sds_device --sds_name $SDName --device_path $Devicepath --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "3"
+                {
+                $Removedev = scli --remove_sds_device --sds_id $SDSID --device_path $Devicepath --mdm_ip $Global:mdm # 2> $sclierror
+                }
+
+     }
+
+}
+end {
+        If ($LASTEXITCODE  -eq 0)
+            {
+            $Removedev
+            }
+        Else
+            {
+            Write-Warning "SCLI exit : Please Check errormessage"
+            }   
+        }
+  
+}
 
 <#
 .Synopsis
