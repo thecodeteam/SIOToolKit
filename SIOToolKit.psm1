@@ -2623,12 +2623,19 @@ if (!($Volumequery))
 Else
     {
     $Snapsource += $Volumequery.VolumeId
-    $SnaptarGet += "$($Volumequery.VolumeName.Substring(0,5))_$Snapname"
+    if ($Volumequery.VolumeName.length -gt 5)
+        {
+        $SnaptarGet += "$($Volumequery.VolumeName.Substring(0,5))_$Snapname"
+        }
+    else
+        {
+        $SnaptarGet += "$($Volumequery.VolumeName)_$Snapname"
+        }
     } 
 }
 end {
     write-verbose ($Snapsource -Join ',')
-    $Snapshots = scli --snapshot_volume --volume_id ($Snapsource -Join ',') --snapshot_name ($SnaptarGet -Join ',') --mdm_ip $Global:mdm 2> $sclierror
+    $Snapshots = scli --snapshot_volume --volume_id ($Snapsource -Join ',') --snapshot_name ($SnaptarGet -Join ',') --mdm_ip $Global:mdm # 2> $sclierror
     $Congroup = "Consistency group ID: "
     $Ident = "    Source volume with ID "
     $Arrow = "=> "
@@ -2798,11 +2805,11 @@ switch ($PsCmdlet.ParameterSetName)
                 write-verbose "scli --add_volume --storage_pool_id $PoolID --size_gb $SizeInGB $Extraparam --mdm_ip $Global:mdm"
                 If ($VolumeName)
                     {
-                    $Newvol = scli --add_volume --storage_pool_id $PoolID  --size_gb $SizeInGB --volume_name $VolumeName $Extraparam --mdm_ip $Global:mdm 2> $sclierror
+                    $Newvol = scli --add_volume --storage_pool_id $PoolID  --size_gb $SizeInGB --volume_name $VolumeName $Extraparam --mdm_ip $Global:mdm 
                     }
                 else
                     {
-                    $Newvol = scli --add_volume --storage_pool_id $PoolID  --size_gb $SizeInGB $Extraparam --mdm_ip $Global:mdm  2> $sclierror
+                    $Newvol = scli --add_volume --storage_pool_id $PoolID  --size_gb $SizeInGB $Extraparam --mdm_ip $Global:mdm 
                     }
 
                 
@@ -2820,7 +2827,7 @@ end {
             }
         Else
             {
-            Write-Error "SCLI exit : $sclierror"
+            Write-Warning "SCLI exit : Please Check errormessage"
             }   
         }
   
