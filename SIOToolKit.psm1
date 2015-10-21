@@ -70,6 +70,39 @@ Else
 .FUNCTIONALITY
    The functionality that best describes this cmdlet
 #>
+function move-SIOmdmownership
+{
+[CmdletBinding()]
+Param()
+$mdmmessage = Connect-SIOmdm
+$PrimaryIP = (Show-SIOcluster).PrimaryIP
+Write-Warning "Primary MD is $PrimaryIP, trying switch"
+scli --switch_mdm_ownership --mdm_ip $PrimaryIP
+}
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
 function Get-yesno
 {
     [CmdletBinding(DefaultParameterSetName='Parameter Set 1', 
