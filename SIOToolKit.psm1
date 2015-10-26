@@ -6,6 +6,7 @@ $SecondaryTag = "Secondary MDM IP: "
 $TieTag = "Tie-Breaker IP: "
 $MgmtTag = "Management IP: "
 $Modetag = "Mode: "
+$Sizetag = "-provisionedSize: "
 <#
 .Synopsis
    Short description
@@ -300,9 +301,6 @@ $Props = $Props.Replace("`n",",")
 $Props = $Props.Replace("`r","")
 
 }
-
-
-
 Process
 {
 switch ($PsCmdlet.ParameterSetName)
@@ -344,13 +342,120 @@ switch ($PsCmdlet.ParameterSetName)
             
             Write-Output $object
     }
-
-
-
 End
 {
 }
 }
+
+
+<#
+Usage: scli --modify_volume_capacity (--volume_id <ID> | --volume_name <NAME>) --size_gb <SIZE>
+Description: Modify a volume capacity
+Parameters:
+    --volume_id <ID>                    Volume ID
+    --volume_name <NAME>                Volume name
+    --size_gb <SIZE>                    New volume size in GB. Basic allocation granularity is 8 GB
+    #>
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Expand-SIOVolume
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO Volume ID  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true, 
+                   ParameterSetName='1')]
+        [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]
+        [Alias("SDCVOLUME_ID_LIST")] 
+        $VolumeID,
+    # Specify the SIO Volume Name  
+        [Parameter(Mandatory=$true, 
+                   ValueFromPipelineByPropertyName=$true,
+                   Position = 1, 
+                   ParameterSetName='2')]
+        [ValidateNotNull()]
+        [ValidateNotNullOrEmpty()]
+        [Alias("Name")] 
+        $VolumeName,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$false)][ValidateRange(1,64000)]$SizeInGB
+
+    )
+
+    Begin
+    {
+    $mdmmessage = Connect-SIOmdm
+    }
+    Process
+    {
+        Write-Verbose "Processing Expand-siovolume"
+        [bool]$Mapped = $false
+        [bool]$MultiMapped = $false
+        $object = New-Object -TypeName psobject
+        switch ($PsCmdlet.ParameterSetName)
+            {
+            "1"
+                {
+                write-verbose $VolumeID
+                scli --modify_volume_capacity --volume_id $VolumeID --size_gb $SizeInGB --mdm_ip $Global:mdm # 2> $null
+                If ($LASTEXITCODE -eq 0)
+                    {
+                    Get-SIOVolume -VolumeID $VolumeID
+                    }
+                else 
+                    {
+                    Write-Warning "There were Errors"
+                    }            
+                }
+            "2"
+                {
+                write-verbose $VolumeName
+                scli --modify_volume_capacity --volume_name $VolumeName --size_gb $SizeInGB --mdm_ip $Global:mdm # 2> $null
+                If ($LASTEXITCODE -eq 0)
+                    {
+                    Get-SIOVolume -VolumeName $VolumeName
+                    }
+                else 
+                    {
+                    Write-Warning "There were Errors"
+                    }
+                }
+            }
+
+    }
+    End
+    {
+    }
+
+}
+
+
 
 
 
@@ -695,6 +800,10 @@ function Get-SIOVolume
         $Object | Add-Member -MemberType NoteProperty -Name Type -Value $Type
         $object | Add-Member -MemberType NoteProperty -Name Mapped -Value $Mapped
         $object | Add-Member -MemberType NoteProperty -Name MultiMapped -Value $MultiMapped
+        $Convert = convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $NameTag -Field2 "$($Type)-provisioned Size: " -IDTag ">> Volume ID: "
+        $object | Add-Member -MemberType NoteProperty -Name Size -Value "$($Convert.Field2)GB"
+
+        # $Object | Add-Member -MemberType NoteProperty -Name Size -Value (Get-SIOVolumeProperties -VolumeID $Convert.id).Volume_Size
         #### Pool   ####
         $IDTag = "   Storage Pool "
         $Convert = Convert-line -Value ($Volumequery | where {$_ -match $IDTag}) -Field1 $Nametag -IDTag $IDTag
