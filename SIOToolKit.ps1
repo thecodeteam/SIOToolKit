@@ -1,5 +1,10 @@
 ﻿[CmdletBinding()]
-Param()
+Param(
+    [System.Net.IPAddress]$mdm_ip1,
+    [System.Net.IPAddress]$mdm_ip2,
+    $UserName,
+    $Password
+)
 function test-scli
 {
 [CmdletBinding()]
@@ -83,6 +88,10 @@ else
 test-scli -Verbose
 
 
+# Connect-SIOmdm -Verbose
+
+
+
 if ($Global:SIOConnected)
     {
     [validateSet('Y','n')]$reconnectSIO = Read-Host -Prompt "Already Scoped to $Global:mdm, select new MDM (Y/N)"
@@ -92,13 +101,41 @@ if ($Global:SIOConnected)
 
 If (!$Global:SIOConnected -or $reconnectSIO -match "Y")
     {
-    [System.Net.IPAddress]$Global:mdmip1 = Read-Host -Prompt "Enter IP for MDM1"
-    [System.Net.IPAddress]$Global:mdmip2 = Read-Host -Prompt "Enter IP for MDM2"
-    $Global:sioUserName = Read-Host -Prompt "Enter MDM Username"
-    $Global:sioPassword = Read-Host -Prompt "Enter MDM Password" -AsSecureString
-    $Global:mdm = "$mdmip1,$mdmip2"
+    if ($mdm_ip1)
+        {
+        [System.Net.IPAddress]$Global:mdmip1 = $mdm_ip1
+        }
+    else
+        {
+        [System.Net.IPAddress]$Global:mdmip1 = Read-Host -Prompt "Enter IP for Primary MDM"
+        }
+    if ($mdm_ip2)
+        {
+        [System.Net.IPAddress]$Global:mdmip2 = $mdm_ip2
+        }
+    else
+        {
+        [System.Net.IPAddress]$Global:mdmip2 = Read-Host -Prompt "Enter IP for Secondary MDM"
+        }
+    if ($UserName)
+        {
+        $Global:sioUserName = $UserName
+        }
+    else
+        {
+        $Global:sioUserName = Read-Host -Prompt "Enter MDM Username"
+        }
+    if ($password)
+        {
+        $Global:sioPassword = $Password | ConvertTo-SecureString -AsPlainText -Force
+        }
+    else
+        {
+        $Global:sioPassword = Read-Host -Prompt "Enter MDM Password" -AsSecureString
+        }
+    $Global:mdm = "$Global:mdmip1,$Global:mdmip2"
     }
-#>
+
 
 
 Connect-SIOmdm -Verbose
