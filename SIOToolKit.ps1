@@ -12,7 +12,7 @@ Param()
 write-verbose "checking if SCLI is installed"
 try
     {
-    $scliversion= scli --version
+    $scliversion = scli --version | out-null
     }
 catch [System.Management.Automation.CommandNotFoundException] 
     {
@@ -20,8 +20,9 @@ catch [System.Management.Automation.CommandNotFoundException]
     Write-verbose "Could not find SCLI, trying modulepath"
     if (!(Test-Path $PSScriptRoot\cli.exe))
         {
-        Write-Error "Neither SCLI installation nor cli.exe in Module Path are found. \n 
+        Write-warning "Neither SCLI installation nor cli.exe in Module Path are found. \n 
                     if this is not an mdm, please copy cli.exe from a mdm to $PSScriptRoot"
+        pause
         break 
         }
     else 
