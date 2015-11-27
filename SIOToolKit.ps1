@@ -143,6 +143,6 @@ try
     }
 catch
     {
-    Write-Warning "Could not connect with gifen Parameters. Wrong Password ?"
-    exit
+    Write-Warning "Could not connect to MDM with given Parameters. Wrong Password ?"
+    break
     }

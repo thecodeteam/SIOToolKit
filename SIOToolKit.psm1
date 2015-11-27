@@ -4168,7 +4168,7 @@ function set-SIODesktopShortcut
 	$link.TargetPath = "$psHome\powershell.exe"
 	$link.Arguments = "-noexit -command `"Import-Module $PSScriptRoot -ArgumentList $global:mdmip1,$global:mdmip1,admin`""
 	$link.Description = "SIOToolKit"
-	$link.WorkingDirectory = "$PSScriptRoot"
+	$link.WorkingDirectory = (Split-Path $PSScriptRoot)
 	$link.IconLocation = 'powershell.exe'
 	$link.Save()
 	}
