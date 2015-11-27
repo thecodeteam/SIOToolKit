@@ -27,7 +27,7 @@ catch [System.Management.Automation.CommandNotFoundException]
     else 
         {
         Write-Verbose "setting alias for scli"
-        Set-Alias -Name scli -Value "$PSScriptRoot\cli.exe" -Description "ScaleIO SCLI" -Verbose -Scope Global
+        Set-Alias -Name scli -Value "$PSScriptRoot\cli.exe" -Description "ScaleIO SCLI" -Scope Global
         $scliversion= scli --version
         }
          
@@ -137,5 +137,12 @@ If (!$Global:SIOConnected -or $reconnectSIO -match "Y")
     }
 
 
-
-Connect-SIOmdm -Verbose
+try
+    {
+    Connect-SIOmdm -Verbose -ErrorAction Stop
+    }
+catch
+    {
+    Write-Warning "Could not connect with gifen Parameters. Wrong Password ?"
+    break
+    }
