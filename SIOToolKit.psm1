@@ -4160,13 +4160,13 @@ end
 }
 }
 
-function create-sioshortcut
+function set-SIODesktopShortcut
     {
     $wshell = New-Object -comObject WScript.Shell
 	$Deskpath = $wshell.SpecialFolders.Item('Desktop')
 	$link = $wshell.CreateShortcut("$Deskpath\SIOToolkit$global:mdmip1.lnk")
 	$link.TargetPath = "$psHome\powershell.exe"
-	$link.Arguments = "-noexit -command `"Import-Module f:\emcdeblog\SIOToolKit -ArgumentList $global:mdmip1,$global:mdmip1,admin`""
+	$link.Arguments = "-noexit -command `"Import-Module $PSScriptRoot -ArgumentList $global:mdmip1,$global:mdmip1,admin`""
 	$link.Description = "SIOToolKit"
 	$link.WorkingDirectory = "$PSScriptRoot"
 	$link.IconLocation = 'powershell.exe'
