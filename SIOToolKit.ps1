@@ -85,7 +85,7 @@ else
     
 
 
-test-scli -Verbose
+test-scli #-Verbose
 
 
 # Connect-SIOmdm -Verbose
@@ -144,5 +144,5 @@ try
 catch
     {
     Write-Warning "Could not connect with gifen Parameters. Wrong Password ?"
-    break
+    exit
     }
