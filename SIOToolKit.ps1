@@ -21,8 +21,8 @@ catch [System.Management.Automation.CommandNotFoundException]
     if (!(Test-Path $PSScriptRoot\cli.exe))
         {
         Write-warning "Neither SCLI installation nor cli.exe in Module Path are found. 
-                    if this is not an mdm, please copy cli.exe from ScaleIO Windows installation to $PSScriptRoot
-                    it can be extracted uing 7zip from the EMC-ScaleIO-mdm-1.32-xxx.msi"
+if this is not an mdm, please copy cli.exe from ScaleIO Windows installation to $PSScriptRoot
+it can be extracted uing 7zip from the EMC-ScaleIO-mdm-1.32-xxx.msi"
         pause
         break 
         }
