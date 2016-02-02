@@ -2937,6 +2937,81 @@ end {
         }
   }
 
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+.INPUTS
+   Inputs to this cmdlet (if any)
+.OUTPUTS
+   Output from this cmdlet (if any)
+.NOTES
+   General notes
+.COMPONENT
+   The component this cmdlet belongs to
+.ROLE
+   The role this cmdlet belongs to
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function Remove-SIOSDc
+{
+    [CmdletBinding(DefaultParameterSetName='1', 
+                  SupportsShouldProcess=$true, 
+                  PositionalBinding=$false,
+                  HelpUri = 'http://labbuildr.com/',
+                  ConfirmImpact='Medium')]
+    # [OutputType([String])]
+    Param
+    (
+    # Specify the SIO PDID
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+    [validateLength(16,16)][ValidatePattern("[0-9A-F]{16}")]$SDCID,
+    # Specify the SIO PDName
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+    [ValidateNotNull()][ValidateNotNullOrEmpty()]$SDCName,
+    [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')][Alias("IP")][ipaddress]$SDCIP
+    )#end param
+begin 
+{
+Connect-SIOmdm | Out-Null
+
+}
+process 
+{
+switch ($PsCmdlet.ParameterSetName)
+    {
+            "1"
+                {
+                $SDC = scli --remove_sdc --sdc_id $SDCID --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "2"
+                {
+                $SDC = scli --remove_sdc --sdc_name $SDCName --mdm_ip $Global:mdm # 2> $sclierror
+                }
+            "3"
+                {
+                $SDC = scli --remove_sdc --sdc_ip $SDCIP --mdm_ip $Global:mdm # 2> $sclierror
+                }
+     }
+        If ($LASTEXITCODE  -eq 0)
+            {
+            $SDC
+            }
+        Else
+            {
+            Write-Warning "SCLI exit : Please Check errormessage"
+            }
+}
+end {
+   
+        }
+  }
 
 
 
