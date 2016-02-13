@@ -4248,3 +4248,180 @@ function Set-SIODesktopShortcut
 	$link.Save()
 	}
 
+
+<#
+#####beginning of network test functions..
+    --parallel_messages <NUMBER>        Number of parallel massages sent during the test. The number is between 1 and 16. Default is 4
+    --network_test_size_gb <SIZE>       Size of data sent between the tested SDS and every other SDS. The default size is 1GB
+    --network_test_length_secs <SECONDS> The maximum time spent testing the SDS, regardless of the number of SDSs in the system. The default is 0 (unlimited)
+#>
+
+function Start-SIOSDSNetworkTest
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO sds IP
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[Alias("IP")]
+[ipaddress]$sdsIP,
+# Specify the SIO sds ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")]$sdsID,
+<# Specify the SIO sds GUID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Guid")]$sdsguid,
+#>
+[Parameter(Mandatory=$false)][ValidateRange(1,16)][int]$messages_in_parallel=4,
+[Parameter(Mandatory=$false)][ValidateRange(1,10)][int]$SizeGB=1,
+[Parameter(Mandatory=$false)][int]$SecondsSpent=0
+
+)
+Begin
+{
+$mdmmessage = Connect-SIOmdm
+}
+Process
+{
+    switch ($PsCmdlet.ParameterSetName)
+    {
+    "1"
+        {
+        Write-Host "Starting Network Tests for $SDSIP"
+        scli --start_sds_network_test --sds_ip $sdsIP --parallel_messages $messages_in_parallel --network_test_size_gb $SizeGB --network_test_length_secs $SecondsSpent --mdm_ip $Global:mdm 
+        }
+    "2"
+        {
+        Write-Host "Starting Network Tests for $SDSID"
+        scli --start_sds_network_test --sds_id $sdsId --parallel_messages $messages_in_parallel --network_test_size_gb $SizeGB --network_test_length_secs $SecondsSpent --mdm_ip $Global:mdm
+        }
+    }
+    switch ($LASTEXITCODE)
+        {
+            0
+            {
+            write-Host "started"
+            }
+            1
+            {
+            Write-Warning "Failed"
+            }
+            7
+            {
+            Write-Warning "already Running"
+            }
+        }
+    }
+
+End
+{
+}
+}
+
+
+
+
+### scli --query_sds_network_test_results
+
+function Get-SIOSDSNetworkTest
+{
+[CmdletBinding(DefaultParameterSetName='1',
+SupportsShouldProcess=$true,
+PositionalBinding=$false,
+HelpUri = 'http://labbuildr.com/',
+ConfirmImpact='Medium')]
+Param
+(
+# Specify the SIO sds IP
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='1')]
+[Alias("IP")]
+[ipaddress]$sdsIP,
+# Specify the SIO sds ID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='2')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Name")]$sdsID
+<# Specify the SIO sds GUID
+[Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='3')]
+[ValidateNotNull()][ValidateNotNullOrEmpty()][Alias("Guid")]$sdsguid,
+#>
+)
+Begin
+{
+$mdmmessage = Connect-SIOmdm
+}
+Process
+{
+    switch ($PsCmdlet.ParameterSetName)
+    {
+    "1"
+        {
+        Write-Verbose "Retrieving Network Tests for $SDSIP"
+        $Testresults = scli --query_sds_network_test_results --sds_ip $sdsIP --mdm_ip $Global:mdm 
+        $SDS = $sdsIP
+        }
+    "2"
+        {
+        Write-Verbose "Retrieving Tests for $SDSID"
+        $Testresults = scli --query_sds_network_test_results --sds_id $sdsId --mdm_ip $Global:mdm
+        $SDS = $sdsID
+        }
+    }
+    switch ($LASTEXITCODE)
+        {
+            1
+            {
+            Write-Warning "Failed"
+            }
+            7
+            {
+            Write-Warning "Tests in progress"
+            }
+        
+
+            0
+            {
+            #$Testresult = @()
+            foreach ($result in $Testresults )
+                {
+                if ($result -match "bandwidth")
+                    {
+                    $currentresult = $result.TrimStart("")
+                    $currentresult = $currentresult.replace("(","")
+                    $currentresult = $currentresult.replace("KB)","")
+                    $currentresult = $currentresult.SPlit(' ')
+                    $CurrentresultIP = $currentresult[2]
+                    $CurrentresultID = $currentresult[1]
+                    $currentresultKB = $currentresult[6]
+                    $CurrentresultMB = $currentresult[4]
+                    Write-Verbose "Found result $Currentresultname with ID $CurrentresultID"
+                    $object = New-Object -TypeName psobject
+                    if ($sdsID)
+                        {
+                        $Object | Add-Member -MemberType NoteProperty -Name SDSid -Value $sdsID
+                        }
+		            if($SDSip)
+                        {
+                        $object | Add-Member -MemberType NoteProperty -Name SDSip -Value $sdsIP
+                        }
+		            $Object | Add-Member -MemberType NoteProperty -Name toSDSid -Value $CurrentresultID
+		            $object | Add-Member -MemberType NoteProperty -Name toSDSip -Value $CurrentresultIP
+		            $object | Add-Member -MemberType NoteProperty -Name bandwidthMB/s -Value $CurrentresultMB
+		            $Object | Add-Member -MemberType NoteProperty -Name bandwidthKB/s -Value $currentresultKB
+                    #$Testresult += $object
+                    Write-Output $object
+                    }
+                
+                }
+                #Write-Output $Testresult
+
+            }
+        }
+    }
+
+End
+{
+}
+}
